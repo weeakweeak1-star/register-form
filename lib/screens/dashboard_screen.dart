@@ -1,9 +1,8 @@
 import 'package:flutter/material.dart';
 import 'package:supabase_flutter/supabase_flutter.dart';
-
 import 'package:go_router/go_router.dart';
-import 'admin_dashboard_screen.dart';
 
+import 'admin_dashboard_screen.dart';
 import 'drivers/drivers_list_screen.dart';
 import 'trips/live_trips_screen.dart';
 import 'trips/trips_history_screen.dart';
@@ -34,7 +33,7 @@ class _DashboardScreenState extends State<DashboardScreen> {
   ];
 
   final List<String> _titles = [
-    'الطلبات المعلقة',
+    'نظرة عامة (Overview)',
     'إدارة وتفعيل الكباتن',
     'الرحلات الجارية',
     'سجل الرحلات',
@@ -44,82 +43,181 @@ class _DashboardScreenState extends State<DashboardScreen> {
     'البلاغات والشكاوى',
   ];
 
+  final List<IconData> _icons = [
+    Icons.dashboard_rounded,
+    Icons.people_alt_rounded,
+    Icons.map_rounded,
+    Icons.history_rounded,
+    Icons.account_balance_wallet_rounded,
+    Icons.credit_card_rounded,
+    Icons.notifications_active_rounded,
+    Icons.report_problem_rounded,
+  ];
+
+  Widget _buildSidebarItem(int index, String title, IconData icon) {
+    final isSelected = _selectedIndex == index;
+    return Container(
+      margin: const EdgeInsets.symmetric(horizontal: 12, vertical: 4),
+      decoration: BoxDecoration(
+        color: isSelected ? Colors.white.withOpacity(0.15) : Colors.transparent,
+        borderRadius: BorderRadius.circular(12),
+        border: isSelected ? Border.all(color: Colors.white.withOpacity(0.3), width: 1) : null,
+      ),
+      child: ListTile(
+        leading: Icon(icon, color: isSelected ? Colors.white : Colors.white70, size: 22),
+        title: Text(
+          title,
+          style: TextStyle(
+            color: isSelected ? Colors.white : Colors.white70,
+            fontWeight: isSelected ? FontWeight.bold : FontWeight.normal,
+            fontSize: 15,
+          ),
+        ),
+        shape: RoundedRectangleBorder(borderRadius: BorderRadius.circular(12)),
+        onTap: () {
+          setState(() {
+            _selectedIndex = index;
+          });
+        },
+        hoverColor: Colors.white.withOpacity(0.05),
+      ),
+    );
+  }
+
   @override
   Widget build(BuildContext context) {
-    // Directionality for Arabic (RTL)
     return Directionality(
       textDirection: TextDirection.rtl,
       child: Scaffold(
-        appBar: AppBar(
-          title: Text(_titles[_selectedIndex]),
-          actions: [
-            IconButton(
-              icon: const Icon(Icons.logout),
-              onPressed: () async {
-                await Supabase.instance.client.auth.signOut();
-                if (mounted) context.go('/admin');
-              },
-            ),
-          ],
-        ),
+        backgroundColor: Colors.grey.shade100, // Light background for content
         body: Row(
           children: [
-            // Sidebar
-            NavigationRail(
-              selectedIndex: _selectedIndex,
-              onDestinationSelected: (int index) {
-                setState(() {
-                  _selectedIndex = index;
-                });
-              },
-              labelType: NavigationRailLabelType.all,
-              destinations: const [
-                NavigationRailDestination(
-                  icon: Icon(Icons.pending_actions_outlined),
-                  selectedIcon: Icon(Icons.pending_actions),
-                  label: Text('الطلبات'),
+            // Modern Sidebar
+            Container(
+              width: 260,
+              decoration: BoxDecoration(
+                gradient: LinearGradient(
+                  colors: [Colors.indigo.shade900, Colors.blue.shade900],
+                  begin: Alignment.topLeft,
+                  end: Alignment.bottomRight,
                 ),
-                NavigationRailDestination(
-                  icon: Icon(Icons.people_outline),
-                  selectedIcon: Icon(Icons.people),
-                  label: Text('الكباتن'),
-                ),
-                NavigationRailDestination(
-                  icon: Icon(Icons.map_outlined),
-                  selectedIcon: Icon(Icons.map),
-                  label: Text('الرحلات الجارية'),
-                ),
-                NavigationRailDestination(
-                  icon: Icon(Icons.history),
-                  selectedIcon: Icon(Icons.history_toggle_off),
-                  label: Text('سجل الرحلات'),
-                ),
-                NavigationRailDestination(
-                  icon: Icon(Icons.account_balance_wallet_outlined),
-                  selectedIcon: Icon(Icons.account_balance_wallet),
-                  label: Text('المحافظ'),
-                ),
-                NavigationRailDestination(
-                  icon: Icon(Icons.credit_card_outlined),
-                  selectedIcon: Icon(Icons.credit_card),
-                  label: Text('كروت الشحن'),
-                ),
-                NavigationRailDestination(
-                  icon: Icon(Icons.notifications_outlined),
-                  selectedIcon: Icon(Icons.notifications),
-                  label: Text('الإشعارات'),
-                ),
-                NavigationRailDestination(
-                  icon: Icon(Icons.report_problem_outlined),
-                  selectedIcon: Icon(Icons.report_problem),
-                  label: Text('الشكاوى'),
-                ),
-              ],
+                boxShadow: [
+                  BoxShadow(color: Colors.black.withOpacity(0.2), blurRadius: 15, offset: const Offset(3, 0)),
+                ],
+              ),
+              child: Column(
+                children: [
+                  const SizedBox(height: 32),
+                  // App Logo & Brand
+                  Row(
+                    mainAxisAlignment: MainAxisAlignment.center,
+                    children: [
+                      Container(
+                        padding: const EdgeInsets.all(12),
+                        decoration: BoxDecoration(
+                          color: Colors.white.withOpacity(0.2),
+                          shape: BoxShape.circle,
+                        ),
+                        child: const Icon(Icons.admin_panel_settings, color: Colors.white, size: 32),
+                      ),
+                      const SizedBox(width: 12),
+                      const Text(
+                        'إدارة وياك',
+                        style: TextStyle(color: Colors.white, fontSize: 24, fontWeight: FontWeight.bold, letterSpacing: 1.2),
+                      ),
+                    ],
+                  ),
+                  const SizedBox(height: 32),
+                  const Divider(color: Colors.white24, indent: 24, endIndent: 24),
+                  const SizedBox(height: 16),
+                  
+                  // Menu Items
+                  Expanded(
+                    child: ListView.builder(
+                      itemCount: _titles.length,
+                      itemBuilder: (context, index) {
+                        return _buildSidebarItem(index, _titles[index], _icons[index]);
+                      },
+                    ),
+                  ),
+                  
+                  const Divider(color: Colors.white24, indent: 24, endIndent: 24),
+                  // Logout Button
+                  Padding(
+                    padding: const EdgeInsets.all(16.0),
+                    child: ElevatedButton.icon(
+                      style: ElevatedButton.styleFrom(
+                        backgroundColor: Colors.redAccent.withOpacity(0.9),
+                        foregroundColor: Colors.white,
+                        minimumSize: const Size(double.infinity, 50),
+                        shape: RoundedRectangleBorder(borderRadius: BorderRadius.circular(12)),
+                        elevation: 0,
+                      ),
+                      icon: const Icon(Icons.logout),
+                      label: const Text('تسجيل الخروج', style: TextStyle(fontSize: 16, fontWeight: FontWeight.bold)),
+                      onPressed: () async {
+                        await Supabase.instance.client.auth.signOut();
+                        if (mounted) context.go('/admin');
+                      },
+                    ),
+                  ),
+                  const SizedBox(height: 16),
+                ],
+              ),
             ),
-            const VerticalDivider(thickness: 1, width: 1),
-            // Main content area
+            
+            // Main Content Area
             Expanded(
-              child: _screens[_selectedIndex],
+              child: Column(
+                children: [
+                  // Modern Top Bar (AppBar inside content)
+                  Container(
+                    height: 80,
+                    padding: const EdgeInsets.symmetric(horizontal: 32),
+                    decoration: BoxDecoration(
+                      color: Colors.white,
+                      boxShadow: [
+                        BoxShadow(color: Colors.black.withOpacity(0.03), blurRadius: 10, offset: const Offset(0, 2)),
+                      ],
+                    ),
+                    child: Row(
+                      mainAxisAlignment: MainAxisAlignment.spaceBetween,
+                      children: [
+                        Text(
+                          _titles[_selectedIndex],
+                          style: TextStyle(fontSize: 24, fontWeight: FontWeight.bold, color: Colors.grey.shade800),
+                        ),
+                        Row(
+                          children: [
+                            Container(
+                              padding: const EdgeInsets.symmetric(horizontal: 16, vertical: 8),
+                              decoration: BoxDecoration(
+                                color: Colors.blue.shade50,
+                                borderRadius: BorderRadius.circular(20),
+                              ),
+                              child: Row(
+                                children: [
+                                  Icon(Icons.person, color: Colors.blue.shade700, size: 20),
+                                  const SizedBox(width: 8),
+                                  Text('Admin', style: TextStyle(color: Colors.blue.shade700, fontWeight: FontWeight.bold)),
+                                ],
+                              ),
+                            ),
+                          ],
+                        ),
+                      ],
+                    ),
+                  ),
+                  
+                  // Screen Content
+                  Expanded(
+                    child: ClipRRect(
+                      borderRadius: const BorderRadius.only(topLeft: Radius.circular(24)),
+                      child: _screens[_selectedIndex],
+                    ),
+                  ),
+                ],
+              ),
             ),
           ],
         ),
