@@ -58,17 +58,18 @@ class _DriverLocationModalState extends State<DriverLocationModal> {
   void _subscribeToLocation() {
     _channel = _supabase.channel('public:driver_online_status:driver_id=eq.${widget.driverId}');
     
-    _channel!.on(
-      RealtimeListenTypes.postgresChanges,
-      ChannelFilter(
-        event: 'UPDATE',
-        schema: 'public',
-        table: 'driver_online_status',
-        filter: 'driver_id=eq.${widget.driverId}',
+    _channel!.onPostgresChanges(
+      event: PostgresChangeEvent.update,
+      schema: 'public',
+      table: 'driver_online_status',
+      filter: PostgresChangeFilter(
+        type: PostgresChangeFilterType.eq,
+        column: 'driver_id',
+        value: widget.driverId,
       ),
-      (payload, [ref]) {
-        final newRecord = payload['new'];
-        if (newRecord != null && newRecord['current_lat'] != null && newRecord['current_lng'] != null) {
+      callback: (payload) {
+        final newRecord = payload.newRecord;
+        if (newRecord.isNotEmpty && newRecord['current_lat'] != null && newRecord['current_lng'] != null) {
           setState(() {
             _currentLocation = LatLng(newRecord['current_lat'] as double, newRecord['current_lng'] as double);
             _isOnline = newRecord['is_online'] ?? false;
