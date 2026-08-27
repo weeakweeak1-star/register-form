@@ -14,7 +14,7 @@ class DriverTripsModal extends StatefulWidget {
 class _DriverTripsModalState extends State<DriverTripsModal> {
   final _supabase = Supabase.instance.client;
   bool _isLoading = true;
-  List<Map<String, dynamic>> _trips = [];
+  List<Map<String, dynamic>> _allTrips = [];
 
   @override
   void initState() {
@@ -24,7 +24,7 @@ class _DriverTripsModalState extends State<DriverTripsModal> {
 
   Future<void> _fetchTrips() async {
     try {
-      // First try to fetch from 'trips' (intercity)
+      // Fetch Intercity Trips
       final tripsData = await _supabase
           .from('trips')
           .select()
@@ -32,11 +32,36 @@ class _DriverTripsModalState extends State<DriverTripsModal> {
           .order('created_at', ascending: false)
           .limit(50);
           
-      // Next, we might want to fetch taxi_requests too if they are separate.
-      // For simplicity, we just show trips here. If the schema combines them, great.
+      // Fetch Taxi Requests
+      final taxiData = await _supabase
+          .from('taxi_requests')
+          .select()
+          .eq('driver_id', widget.driverId)
+          .order('created_at', ascending: false)
+          .limit(50);
+          
+      final List<Map<String, dynamic>> combined = [];
+      
+      for (var t in tripsData) {
+        final map = Map<String, dynamic>.from(t);
+        map['is_taxi'] = false;
+        combined.add(map);
+      }
+      for (var t in taxiData) {
+        final map = Map<String, dynamic>.from(t);
+        map['is_taxi'] = true;
+        combined.add(map);
+      }
+
+      // Sort by created_at descending
+      combined.sort((a, b) {
+        final dateA = DateTime.tryParse(a['created_at'].toString()) ?? DateTime.now();
+        final dateB = DateTime.tryParse(b['created_at'].toString()) ?? DateTime.now();
+        return dateB.compareTo(dateA);
+      });
           
       setState(() {
-        _trips = List<Map<String, dynamic>>.from(tripsData);
+        _allTrips = combined;
         _isLoading = false;
       });
     } catch (e) {
@@ -45,13 +70,92 @@ class _DriverTripsModalState extends State<DriverTripsModal> {
     }
   }
 
+  Widget _buildTripCard(Map<String, dynamic> trip, bool isTaxi) {
+    final status = trip['status'] ?? 'unknown';
+    Color statusColor = Colors.grey;
+    String statusText = status;
+    if (status == 'completed') { statusColor = Colors.green; statusText = 'مكتملة'; }
+    else if (status == 'ongoing' || status == 'started' || status == 'accepted') { statusColor = Colors.blue; statusText = 'جارية'; }
+    else if (status == 'cancelled' || status == 'rejected') { statusColor = Colors.red; statusText = 'ملغاة'; }
+
+    final date = trip['created_at']?.toString().split('T').first ?? 'غير محدد';
+    final timeStr = trip['created_at']?.toString().split('T').last ?? '';
+    final time = timeStr.length >= 5 ? timeStr.substring(0, 5) : timeStr;
+    final price = isTaxi ? (trip['estimated_price'] ?? trip['total_price'] ?? 0) : (trip['price_per_seat'] ?? 0);
+    
+    // Addresses
+    String pickup = isTaxi ? (trip['pickup_address'] ?? 'غير محدد') : (trip['from_city'] ?? 'غير محدد');
+    String dropoff = isTaxi ? (trip['dropoff_address'] ?? 'غير محدد') : (trip['to_city'] ?? 'غير محدد');
+
+    return Card(
+      elevation: 2,
+      margin: const EdgeInsets.symmetric(vertical: 8, horizontal: 4),
+      shape: RoundedRectangleBorder(borderRadius: BorderRadius.circular(12), side: BorderSide(color: Colors.grey.shade200)),
+      child: Padding(
+        padding: const EdgeInsets.all(16.0),
+        child: Column(
+          crossAxisAlignment: CrossAxisAlignment.start,
+          children: [
+            Row(
+              mainAxisAlignment: MainAxisAlignment.spaceBetween,
+              children: [
+                Row(
+                  children: [
+                    Icon(isTaxi ? Icons.local_taxi : Icons.directions_bus, color: isTaxi ? Colors.orange : Colors.indigo),
+                    const SizedBox(width: 8),
+                    Text(isTaxi ? 'تكسي داخلي' : 'رحلة خارجية', style: const TextStyle(fontWeight: FontWeight.bold, fontSize: 16)),
+                  ],
+                ),
+                Container(
+                  padding: const EdgeInsets.symmetric(horizontal: 12, vertical: 6),
+                  decoration: BoxDecoration(color: statusColor.withOpacity(0.1), borderRadius: BorderRadius.circular(20)),
+                  child: Text(statusText, style: TextStyle(color: statusColor, fontWeight: FontWeight.bold)),
+                ),
+              ],
+            ),
+            const Divider(height: 24),
+            Row(
+              children: [
+                const Icon(Icons.my_location, size: 16, color: Colors.green),
+                const SizedBox(width: 8),
+                Expanded(child: Text('من: $pickup', style: const TextStyle(fontSize: 14))),
+              ],
+            ),
+            const SizedBox(height: 8),
+            Row(
+              children: [
+                const Icon(Icons.location_on, size: 16, color: Colors.red),
+                const SizedBox(width: 8),
+                Expanded(child: Text('إلى: $dropoff', style: const TextStyle(fontSize: 14))),
+              ],
+            ),
+            const SizedBox(height: 16),
+            Row(
+              mainAxisAlignment: MainAxisAlignment.spaceBetween,
+              children: [
+                Row(
+                  children: [
+                    const Icon(Icons.calendar_today, size: 16, color: Colors.grey),
+                    const SizedBox(width: 8),
+                    Text('$date  $time', style: const TextStyle(color: Colors.grey)),
+                  ],
+                ),
+                Text('السعر: $price د.ع', style: const TextStyle(fontWeight: FontWeight.bold, fontSize: 16, color: Colors.green)),
+              ],
+            ),
+          ],
+        ),
+      ),
+    );
+  }
+
   @override
   Widget build(BuildContext context) {
     return Dialog(
       shape: RoundedRectangleBorder(borderRadius: BorderRadius.circular(16)),
       child: Container(
-        width: 800,
-        height: 600,
+        width: 600,
+        height: 700,
         padding: const EdgeInsets.all(24),
         child: Column(
           crossAxisAlignment: CrossAxisAlignment.start,
@@ -59,7 +163,7 @@ class _DriverTripsModalState extends State<DriverTripsModal> {
             Row(
               mainAxisAlignment: MainAxisAlignment.spaceBetween,
               children: [
-                Text('رحلات الكابتن: ${widget.driverName}', style: const TextStyle(fontSize: 20, fontWeight: FontWeight.bold)),
+                Text('سجل رحلات الكابتن: ${widget.driverName}', style: const TextStyle(fontSize: 20, fontWeight: FontWeight.bold)),
                 IconButton(icon: const Icon(Icons.close), onPressed: () => Navigator.pop(context)),
               ],
             ),
@@ -68,44 +172,13 @@ class _DriverTripsModalState extends State<DriverTripsModal> {
               const Expanded(child: Center(child: CircularProgressIndicator()))
             else
               Expanded(
-                child: _trips.isEmpty
-                    ? const Center(child: Text('لا توجد رحلات (مشتركة / خارجية) لهذا الكابتن حتى الآن'))
-                    : ListView.separated(
-                        itemCount: _trips.length,
-                        separatorBuilder: (context, index) => const Divider(),
+                child: _allTrips.isEmpty
+                    ? const Center(child: Text('لا توجد رحلات مسجلة لهذا الكابتن حتى الآن', style: TextStyle(fontSize: 16)))
+                    : ListView.builder(
+                        itemCount: _allTrips.length,
                         itemBuilder: (context, index) {
-                          final trip = _trips[index];
-                          final status = trip['status'] ?? 'unknown';
-                          
-                          Color statusColor = Colors.grey;
-                          String statusText = status;
-                          if (status == 'completed') { statusColor = Colors.green; statusText = 'مكتملة'; }
-                          else if (status == 'ongoing' || status == 'started') { statusColor = Colors.blue; statusText = 'جارية'; }
-                          else if (status == 'cancelled') { statusColor = Colors.red; statusText = 'ملغاة'; }
-
-                          return ListTile(
-                            title: Text('رحلة رقم: ${trip['id'].toString().substring(0, 8)}'),
-                            subtitle: Column(
-                              crossAxisAlignment: CrossAxisAlignment.start,
-                              children: [
-                                const SizedBox(height: 4),
-                                Text('السعر: ${trip['price_per_seat'] ?? 0} د.ع / مقعد'),
-                                Text('التاريخ: ${trip['departure_time']?.toString().split('T').first ?? 'غير محدد'}'),
-                              ],
-                            ),
-                            trailing: Container(
-                              padding: const EdgeInsets.symmetric(horizontal: 12, vertical: 6),
-                              decoration: BoxDecoration(
-                                color: statusColor.withOpacity(0.1),
-                                borderRadius: BorderRadius.circular(8),
-                              ),
-                              child: Text(
-                                statusText,
-                                style: TextStyle(color: statusColor, fontWeight: FontWeight.bold),
-                              ),
-                            ),
-                            isThreeLine: true,
-                          );
+                          final trip = _allTrips[index];
+                          return _buildTripCard(trip, trip['is_taxi'] == true);
                         },
                       ),
               ),
