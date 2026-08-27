@@ -1,6 +1,10 @@
 import 'package:flutter/material.dart';
 import 'package:supabase_flutter/supabase_flutter.dart';
 import 'driver_details_screen.dart';
+import 'components/edit_driver_dialog.dart';
+import 'components/driver_location_modal.dart';
+import 'components/driver_wallet_modal.dart';
+import 'components/driver_trips_modal.dart';
 
 class DriversListScreen extends StatefulWidget {
   const DriversListScreen({super.key});
@@ -110,12 +114,45 @@ class _DriversListScreenState extends State<DriversListScreen> {
                               trailing: Row(
                                 mainAxisSize: MainAxisSize.min,
                                 children: [
-                                    if (status != 'approved')
-                                      IconButton(
-                                        icon: const Icon(Icons.check, color: Colors.green),
-                                        tooltip: 'تفعيل',
-                                        onPressed: () => _updateDriverStatus(driver['id'], 'approved'),
+                                  IconButton(
+                                    icon: const Icon(Icons.location_on, color: Colors.blueGrey),
+                                    tooltip: 'الموقع الحي',
+                                    onPressed: () => showDialog(
+                                      context: context,
+                                      builder: (context) => DriverLocationModal(
+                                        driverId: driver['id'],
+                                        driverName: driver['full_name'] ?? 'بدون اسم',
                                       ),
+                                    ),
+                                  ),
+                                  IconButton(
+                                    icon: const Icon(Icons.account_balance_wallet, color: Colors.orange),
+                                    tooltip: 'المحفظة',
+                                    onPressed: () => showDialog(
+                                      context: context,
+                                      builder: (context) => DriverWalletModal(
+                                        driverId: driver['id'],
+                                        driverName: driver['full_name'] ?? 'بدون اسم',
+                                      ),
+                                    ),
+                                  ),
+                                  IconButton(
+                                    icon: const Icon(Icons.history, color: Colors.teal),
+                                    tooltip: 'سجل الرحلات',
+                                    onPressed: () => showDialog(
+                                      context: context,
+                                      builder: (context) => DriverTripsModal(
+                                        driverId: driver['id'],
+                                        driverName: driver['full_name'] ?? 'بدون اسم',
+                                      ),
+                                    ),
+                                  ),
+                                  if (status != 'approved')
+                                    IconButton(
+                                      icon: const Icon(Icons.check, color: Colors.green),
+                                      tooltip: 'تفعيل',
+                                      onPressed: () => _updateDriverStatus(driver['id'], 'approved'),
+                                    ),
                                   if (status != 'suspended')
                                     IconButton(
                                       icon: const Icon(Icons.block, color: Colors.red),
