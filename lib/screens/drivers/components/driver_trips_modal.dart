@@ -23,8 +23,10 @@ class _DriverTripsModalState extends State<DriverTripsModal> {
   }
 
   Future<void> _fetchTrips() async {
+    final List<Map<String, dynamic>> combined = [];
+
+    // Fetch Intercity Trips
     try {
-      // Fetch Intercity Trips
       final tripsData = await _supabase
           .from('trips')
           .select()
@@ -32,7 +34,17 @@ class _DriverTripsModalState extends State<DriverTripsModal> {
           .order('created_at', ascending: false)
           .limit(50);
           
-      // Fetch Taxi Requests
+      for (var t in tripsData) {
+        final map = Map<String, dynamic>.from(t);
+        map['is_taxi'] = false;
+        combined.add(map);
+      }
+    } catch (e) {
+      debugPrint('Error fetching trips: $e');
+    }
+        
+    // Fetch Taxi Requests
+    try {
       final taxiData = await _supabase
           .from('taxi_requests')
           .select()
@@ -40,19 +52,16 @@ class _DriverTripsModalState extends State<DriverTripsModal> {
           .order('created_at', ascending: false)
           .limit(50);
           
-      final List<Map<String, dynamic>> combined = [];
-      
-      for (var t in tripsData) {
-        final map = Map<String, dynamic>.from(t);
-        map['is_taxi'] = false;
-        combined.add(map);
-      }
       for (var t in taxiData) {
         final map = Map<String, dynamic>.from(t);
         map['is_taxi'] = true;
         combined.add(map);
       }
+    } catch (e) {
+      debugPrint('Error fetching taxi requests: $e');
+    }
 
+    try {
       // Sort by created_at descending
       combined.sort((a, b) {
         final dateA = DateTime.tryParse(a['created_at'].toString()) ?? DateTime.now();
@@ -60,12 +69,14 @@ class _DriverTripsModalState extends State<DriverTripsModal> {
         return dateB.compareTo(dateA);
       });
           
-      setState(() {
-        _allTrips = combined;
-        _isLoading = false;
-      });
+      if (mounted) {
+        setState(() {
+          _allTrips = combined;
+          _isLoading = false;
+        });
+      }
     } catch (e) {
-      debugPrint('Error fetching trips: $e');
+      debugPrint('Error sorting trips: $e');
       if (mounted) setState(() => _isLoading = false);
     }
   }
