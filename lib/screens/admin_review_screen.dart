@@ -19,7 +19,9 @@ class _AdminReviewScreenState extends State<AdminReviewScreen> {
   final _carTypeController = TextEditingController();
   final _carModelController = TextEditingController();
   final _carColorController = TextEditingController();
-  final _carPlateController = TextEditingController();
+  final _plateGovCodeController = TextEditingController();
+  final _plateLetterController = TextEditingController();
+  final _plateNumberController = TextEditingController();
   final _carSeatsController = TextEditingController();
 
   @override
@@ -53,7 +55,7 @@ class _AdminReviewScreenState extends State<AdminReviewScreen> {
         'car_type': _carTypeController.text.trim(),
         'car_model': _carModelController.text.trim(),
         'car_color': _carColorController.text.trim(),
-        'car_plate': _carPlateController.text.trim(),
+        'car_plate': '${_plateNumberController.text.trim()} - ${_plateLetterController.text.trim()} - ${_plateGovCodeController.text.trim()}',
         'car_seats': int.tryParse(_carSeatsController.text.trim()) ?? 4,
       }).eq('id', widget.applicationId);
 
@@ -202,10 +204,63 @@ class _AdminReviewScreenState extends State<AdminReviewScreen> {
                       validator: (v) => v!.isEmpty ? 'مطلوب' : null,
                     ),
                     const SizedBox(height: 16),
-                    TextFormField(
-                      controller: _carPlateController,
-                      decoration: const InputDecoration(labelText: 'رقم اللوحة', border: OutlineInputBorder()),
-                      validator: (v) => v!.isEmpty ? 'مطلوب' : null,
+                    Container(
+                      padding: const EdgeInsets.all(12),
+                      decoration: BoxDecoration(
+                        border: Border.all(color: Colors.grey.shade400),
+                        borderRadius: BorderRadius.circular(8),
+                      ),
+                      child: Column(
+                        crossAxisAlignment: CrossAxisAlignment.start,
+                        children: [
+                          const Text('رقم اللوحة (كما في السنوية)', style: TextStyle(fontSize: 14, fontWeight: FontWeight.bold, color: Colors.black54)),
+                          const SizedBox(height: 12),
+                          Directionality(
+                            textDirection: TextDirection.ltr, // To force layout like the actual license plate
+                            child: Row(
+                              children: [
+                                Expanded(
+                                  flex: 2,
+                                  child: TextFormField(
+                                    controller: _plateGovCodeController,
+                                    keyboardType: TextInputType.number,
+                                    textAlign: TextAlign.center,
+                                    decoration: const InputDecoration(labelText: 'المحافظة', border: OutlineInputBorder()),
+                                    validator: (v) => v!.isEmpty ? 'مطلوب' : null,
+                                  ),
+                                ),
+                                const Padding(
+                                  padding: EdgeInsets.symmetric(horizontal: 8.0),
+                                  child: Text('-', style: TextStyle(fontSize: 24, fontWeight: FontWeight.bold)),
+                                ),
+                                Expanded(
+                                  flex: 2,
+                                  child: TextFormField(
+                                    controller: _plateLetterController,
+                                    textAlign: TextAlign.center,
+                                    decoration: const InputDecoration(labelText: 'الحرف', border: OutlineInputBorder()),
+                                    validator: (v) => v!.isEmpty ? 'مطلوب' : null,
+                                  ),
+                                ),
+                                const Padding(
+                                  padding: EdgeInsets.symmetric(horizontal: 8.0),
+                                  child: Text('-', style: TextStyle(fontSize: 24, fontWeight: FontWeight.bold)),
+                                ),
+                                Expanded(
+                                  flex: 3,
+                                  child: TextFormField(
+                                    controller: _plateNumberController,
+                                    keyboardType: TextInputType.number,
+                                    textAlign: TextAlign.center,
+                                    decoration: const InputDecoration(labelText: 'الرقم', border: OutlineInputBorder()),
+                                    validator: (v) => v!.isEmpty ? 'مطلوب' : null,
+                                  ),
+                                ),
+                              ],
+                            ),
+                          ),
+                        ],
+                      ),
                     ),
                     const SizedBox(height: 16),
                     TextFormField(
