@@ -2,7 +2,6 @@ import 'package:flutter/material.dart';
 import 'package:supabase_flutter/supabase_flutter.dart';
 import 'package:go_router/go_router.dart';
 import 'app_secrets.dart';
-import 'screens/form_screen.dart';
 import 'screens/admin_login_screen.dart';
 import 'screens/admin_dashboard_screen.dart';
 import 'screens/admin_review_screen.dart';
@@ -24,7 +23,7 @@ final GoRouter _router = GoRouter(
   routes: [
     GoRoute(
       path: '/',
-      builder: (context, state) => const ApplicationFormScreen(),
+      redirect: (context, state) => '/admin',
     ),
     GoRoute(
       path: '/admin',
