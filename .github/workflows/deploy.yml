@@ -36,6 +36,10 @@ jobs:
 
       - name: Prepare Final Folder
         run: |
+          # Delete service workers to prevent cache conflicts and force old clients to unregister
+          rm -f build/web_form/flutter_service_worker.js
+          rm -f build/web_admin/flutter_service_worker.js
+          
           mkdir -p build/final_publish
           cp -r build/web_form/* build/final_publish/
           mkdir -p build/final_publish/admin
