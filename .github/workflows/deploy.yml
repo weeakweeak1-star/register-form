@@ -28,11 +28,16 @@ jobs:
         run: |
           flutter build web -t lib/main_form.dart --base-href "/register-form/"
           mv build/web build/web_form
+          sed -i 's/"name": "ادارة وياك"/"name": "استمارة التسجيل"/g' build/web_form/manifest.json
+          sed -i 's/"short_name": "ادارة وياك"/"short_name": "استمارة التسجيل"/g' build/web_form/manifest.json
+          sed -i 's/"start_url": "."/"start_url": "\/register-form\/"/g' build/web_form/manifest.json
+          sed -i 's/<title>ادارة وياك<\/title>/<title>استمارة التسجيل<\/title>/g' build/web_form/index.html
 
       - name: Build Admin App
         run: |
           flutter build web -t lib/main.dart --base-href "/register-form/admin/"
           mv build/web build/web_admin
+          sed -i 's/"start_url": "."/"start_url": "\/register-form\/admin\/"/g' build/web_admin/manifest.json
 
       - name: Prepare Final Folder
         run: |
