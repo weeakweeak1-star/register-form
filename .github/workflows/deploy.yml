@@ -24,11 +24,25 @@ jobs:
       - name: Get Dependencies
         run: flutter pub get
 
-      - name: Build Web
-        run: flutter build web --base-href "/register-form/"
+      - name: Build Form App
+        run: |
+          flutter build web -t lib/main_form.dart --base-href "/register-form/"
+          mv build/web build/web_form
+
+      - name: Build Admin App
+        run: |
+          flutter build web -t lib/main.dart --base-href "/register-form/admin/"
+          mv build/web build/web_admin
+
+      - name: Prepare Final Folder
+        run: |
+          mkdir -p build/final_publish
+          cp -r build/web_form/* build/final_publish/
+          mkdir -p build/final_publish/admin
+          cp -r build/web_admin/* build/final_publish/admin/
 
       - name: Deploy to GitHub Pages
         uses: peaceiris/actions-gh-pages@v3
         with:
           github_token: ${{ secrets.GITHUB_TOKEN }}
-          publish_dir: ./build/web
+          publish_dir: ./build/final_publish
