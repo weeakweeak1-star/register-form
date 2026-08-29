@@ -1,7 +1,7 @@
 {
-    "name": "ادارة وياك",
-    "short_name": "ادارة وياك",
-    "start_url": ".",
+    "name": "استمارة التسجيل",
+    "short_name": "استمارة التسجيل",
+    "start_url": "/register-form/",
     "display": "standalone",
     "background_color": "#0175C2",
     "theme_color": "#0175C2",
