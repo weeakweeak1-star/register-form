@@ -21,7 +21,7 @@ class _AdminLoginScreenState extends State<AdminLoginScreen> {
         email: _emailController.text.trim(),
         password: _passwordController.text,
       );
-      if (mounted) context.go('/admin/dashboard');
+      if (mounted) context.go('/dashboard');
     } catch (e) {
       if (mounted) {
         ScaffoldMessenger.of(context).showSnackBar(

@@ -157,7 +157,7 @@ class _DashboardScreenState extends State<DashboardScreen> {
                       label: const Text('تسجيل الخروج', style: TextStyle(fontSize: 16, fontWeight: FontWeight.bold)),
                       onPressed: () async {
                         await Supabase.instance.client.auth.signOut();
-                        if (mounted) context.go('/admin');
+                        if (mounted) context.go('/');
                       },
                     ),
                   ),

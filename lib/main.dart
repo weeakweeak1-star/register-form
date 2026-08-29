@@ -23,18 +23,14 @@ final GoRouter _router = GoRouter(
   routes: [
     GoRoute(
       path: '/',
-      redirect: (context, state) => '/admin',
-    ),
-    GoRoute(
-      path: '/admin',
       builder: (context, state) => const AdminLoginScreen(),
     ),
     GoRoute(
-      path: '/admin/dashboard',
+      path: '/dashboard',
       builder: (context, state) => const DashboardScreen(),
     ),
     GoRoute(
-      path: '/admin/review/:id',
+      path: '/review/:id',
       builder: (context, state) {
         final id = state.pathParameters['id']!;
         return AdminReviewScreen(applicationId: id);
@@ -43,16 +39,13 @@ final GoRouter _router = GoRouter(
   ],
   redirect: (context, state) {
     final session = supabase.auth.currentSession;
-    final isGoingToAdmin = state.matchedLocation.startsWith('/admin');
-    final isGoingToLogin = state.matchedLocation == '/admin';
+    final isGoingToLogin = state.matchedLocation == '/';
 
-    if (isGoingToAdmin) {
-      if (session == null && !isGoingToLogin) {
-        return '/admin';
-      }
-      if (session != null && isGoingToLogin) {
-        return '/admin/dashboard';
-      }
+    if (session == null && !isGoingToLogin) {
+      return '/';
+    }
+    if (session != null && isGoingToLogin) {
+      return '/dashboard';
     }
     return null;
   },

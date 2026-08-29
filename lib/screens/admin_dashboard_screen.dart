@@ -268,7 +268,7 @@ class _AdminDashboardScreenState extends State<AdminDashboardScreen> {
                 elevation: 0,
               ),
               onPressed: () {
-                context.push('/admin/review/${app['id']}').then((_) => _fetchDashboardData());
+                context.push('/review/${app['id']}').then((_) => _fetchDashboardData());
               },
               child: const Text('مراجعة الملف'),
             ),
