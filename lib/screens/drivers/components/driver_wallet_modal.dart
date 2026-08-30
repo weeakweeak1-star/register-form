@@ -41,24 +41,9 @@ class _DriverWalletModalState extends State<DriverWalletModal> {
           .order('created_at', ascending: false)
           .limit(50);
           
-      // Fallback: Check if balance is stored directly in profiles table
-      final profileData = await _supabase
-          .from('profiles')
-          .select('balance, wallet_balance')
-          .eq('id', widget.driverId)
-          .maybeSingle();
-
       setState(() {
         if (walletResponse != null && walletResponse['balance'] != null) {
           _balance = (walletResponse['balance'] as num).toDouble();
-        } else if (profileData != null) {
-          if (profileData['wallet_balance'] != null) {
-            _balance = (profileData['wallet_balance'] as num).toDouble();
-          } else if (profileData['balance'] != null) {
-            _balance = (profileData['balance'] as num).toDouble();
-          } else {
-            _balance = 0.0;
-          }
         } else {
           _balance = 0.0;
         }
