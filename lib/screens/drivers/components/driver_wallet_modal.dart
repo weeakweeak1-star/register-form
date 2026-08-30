@@ -1,5 +1,6 @@
 import 'package:flutter/material.dart';
 import 'package:supabase_flutter/supabase_flutter.dart';
+import 'package:intl/intl.dart';
 
 class DriverWalletModal extends StatefulWidget {
   final String driverId;
@@ -140,7 +141,7 @@ class _DriverWalletModalState extends State<DriverWalletModal> {
                                   const Text('الرصيد الحالي', style: TextStyle(fontSize: 16, color: Colors.blueGrey)),
                                   const SizedBox(height: 8),
                                   Text(
-                                    '${_balance.toStringAsFixed(0)} د.ع',
+                                    '${NumberFormat('#,##0').format(_balance)} د.ع',
                                     style: TextStyle(
                                       fontSize: 32,
                                       fontWeight: FontWeight.bold,
@@ -222,7 +223,7 @@ class _DriverWalletModalState extends State<DriverWalletModal> {
                                         title: Text(displayType),
                                         subtitle: Text(tx['created_at'].toString().split('T').first),
                                         trailing: Text(
-                                          '${isDeposit ? '+' : '-'}${amount.abs().toStringAsFixed(0)}',
+                                          '${isDeposit ? '+' : '-'}${NumberFormat('#,##0').format(amount.abs())}',
                                           style: TextStyle(
                                             fontWeight: FontWeight.bold,
                                             color: isDeposit ? Colors.green : Colors.red,

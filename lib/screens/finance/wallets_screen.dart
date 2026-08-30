@@ -1,5 +1,6 @@
 import 'package:flutter/material.dart';
 import 'package:supabase_flutter/supabase_flutter.dart';
+import 'package:intl/intl.dart';
 
 class WalletsScreen extends StatefulWidget {
   const WalletsScreen({super.key});
@@ -162,7 +163,7 @@ class _WalletsScreenState extends State<WalletsScreen> {
                         child: ListTile(
                           leading: const CircleAvatar(child: Icon(Icons.account_balance_wallet)),
                           title: Text(captain['full_name'] ?? 'بدون اسم'),
-                          subtitle: Text('الرقم: ${captain['phone']}\nالرصيد الحالي: $currentBalance د.ع'),
+                          subtitle: Text('الرقم: ${captain['phone']}\nالرصيد الحالي: ${NumberFormat('#,##0').format(currentBalance)} د.ع'),
                           trailing: ElevatedButton(
                             onPressed: () => _showTopUpDialog(captain),
                             child: const Text('إضافة / خصم رصيد'),
