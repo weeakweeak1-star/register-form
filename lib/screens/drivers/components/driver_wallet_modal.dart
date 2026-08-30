@@ -27,10 +27,11 @@ class _DriverWalletModalState extends State<DriverWalletModal> {
 
   Future<void> _fetchWalletData() async {
     try {
-      final walletData = await _supabase
+      final walletResponse = await _supabase
           .from('driver_wallets')
           .select('balance')
           .eq('driver_id', widget.driverId)
+          .limit(1)
           .maybeSingle();
       
       final txData = await _supabase
@@ -41,13 +42,20 @@ class _DriverWalletModalState extends State<DriverWalletModal> {
           .limit(50);
           
       setState(() {
-        _balance = walletData != null ? (walletData['balance'] as num).toDouble() : 0.0;
+        if (walletResponse != null) {
+          _balance = (walletResponse['balance'] as num).toDouble();
+        } else {
+          _balance = 0.0;
+        }
         _transactions = List<Map<String, dynamic>>.from(txData);
         _isLoading = false;
       });
     } catch (e) {
       debugPrint('Error fetching wallet: $e');
-      if (mounted) setState(() => _isLoading = false);
+      if (mounted) {
+        setState(() => _isLoading = false);
+        ScaffoldMessenger.of(context).showSnackBar(SnackBar(content: Text('خطأ في جلب الرصيد: $e')));
+      }
     }
   }
 
