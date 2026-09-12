@@ -50,16 +50,19 @@ class _TripsHistoryScreenState extends State<TripsHistoryScreen> {
 
   Future<void> _fetchTotalCompletedTrips() async {
     try {
-      final count = await supabase
+      final response = await supabase
           .from('trips')
           .select('id')
           .eq('status', 'completed')
           .count(CountOption.exact);
       setState(() {
-        totalCompletedTrips = count;
+        totalCompletedTrips = response.count ?? 0;
       });
     } catch (e) {
       debugPrint('Error fetching completed trips count: $e');
+      if (mounted) {
+        ScaffoldMessenger.of(context).showSnackBar(SnackBar(content: Text('Error fetching count: $e')));
+      }
     }
   }
 
@@ -121,7 +124,10 @@ class _TripsHistoryScreenState extends State<TripsHistoryScreen> {
       });
     } catch (e) {
       debugPrint('Error fetching trips: $e');
-      setState(() => isLoading = false);
+      if (mounted) {
+        ScaffoldMessenger.of(context).showSnackBar(SnackBar(content: Text('Error fetching trips: $e')));
+        setState(() => isLoading = false);
+      }
     }
   }
 
