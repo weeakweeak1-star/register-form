@@ -52,8 +52,9 @@ class _TripsHistoryScreenState extends State<TripsHistoryScreen> {
     try {
       final count = await supabase
           .from('trips')
-          .count(CountOption.exact)
-          .eq('status', 'completed');
+          .select('id')
+          .eq('status', 'completed')
+          .count(CountOption.exact);
       setState(() {
         totalCompletedTrips = count;
       });
@@ -69,7 +70,7 @@ class _TripsHistoryScreenState extends State<TripsHistoryScreen> {
 
       // If searching by driver name, we must use !inner join to filter on the joined table
       if (searchQuery.isNotEmpty && searchType == 'اسم الكابتن') {
-        query = supabase.from('trips').select('*, profiles!inner(full_name)');
+        query = supabase.from('trips').select('*, profiles!driver_id!inner(full_name)');
       }
 
       // Status Filter
@@ -93,16 +94,29 @@ class _TripsHistoryScreenState extends State<TripsHistoryScreen> {
       // Search Query Filter
       if (searchQuery.isNotEmpty) {
         if (searchType == 'رقم الرحلة') {
-          query = query.eq('id', searchQuery);
+          // If searching by partial ID (UUID), PostgREST will throw an error with .eq
+          // We apply this filter locally below.
         } else if (searchType == 'اسم الكابتن') {
           query = query.ilike('profiles.full_name', '%$searchQuery%');
         }
       }
 
-      final response = await query.order('created_at', ascending: false).limit(50);
+      int fetchLimit = (searchQuery.isNotEmpty && searchType == 'رقم الرحلة') ? 1000 : 50;
+      final response = await query.order('created_at', ascending: false).limit(fetchLimit);
       
+      List<dynamic> fetchedTrips = response;
+      
+      // Local Filter for Trip ID
+      if (searchQuery.isNotEmpty && searchType == 'رقم الرحلة') {
+        final queryStr = searchQuery.toLowerCase();
+        fetchedTrips = fetchedTrips.where((trip) {
+          final id = trip['id']?.toString().toLowerCase() ?? '';
+          return id.contains(queryStr);
+        }).toList();
+      }
+
       setState(() {
-        trips = response;
+        trips = fetchedTrips;
         isLoading = false;
       });
     } catch (e) {
