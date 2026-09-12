@@ -5,7 +5,7 @@
 -- 1. معالجة أي طلبات قديمة تحتوي على سعر فارغ NULL أو صفر لتفادي فشل تطبيق القيد
 UPDATE public.taxi_requests
 SET price = 3000
-WHERE price IS NULL OR price <= 0;
+WHERE price IS NULL OR (price <= 0 AND promo_id IS NULL);
 
 -- 2. إزالة القيود السابقة إن وجدت لضمان Idempotency
 ALTER TABLE public.taxi_requests 
@@ -19,7 +19,7 @@ ALTER COLUMN price SET NOT NULL;
 
 -- 4. إضافة قيد التحقق من أن السعر دائماً رقم موجب أكبر من الصفر
 ALTER TABLE public.taxi_requests
-ADD CONSTRAINT taxi_requests_price_check CHECK (price > 0);
+ADD CONSTRAINT taxi_requests_price_check CHECK (price > 0 OR (price = 0 AND promo_id IS NOT NULL));
 
 -- 5. إضافة قيد التحقق من حالات الطلب المعتمدة
 ALTER TABLE public.taxi_requests

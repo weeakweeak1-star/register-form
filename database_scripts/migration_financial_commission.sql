@@ -4,8 +4,13 @@ RETURNS VOID AS $$
 DECLARE
   v_commission NUMERIC;
 BEGIN
-  -- 10% commission
-  v_commission := p_amount * 0.10;
+  -- 10% commission for Taxi (p_taxi_request_id is not null)
+  -- 5% commission for Bookings (Shared/Scheduled)
+  IF p_taxi_request_id IS NOT NULL THEN
+    v_commission := p_amount * 0.10;
+  ELSE
+    v_commission := p_amount * 0.05;
+  END IF;
   
   -- Ensure wallet exists
   INSERT INTO public.driver_wallets (driver_id, balance)

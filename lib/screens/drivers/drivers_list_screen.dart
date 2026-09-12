@@ -30,10 +30,57 @@ class _DriversListScreenState extends State<DriversListScreen> {
       final response = await supabase
           .from('profiles')
           .select()
-          .eq('is_driver', true)
-          .order('created_at', ascending: false);
+          .eq('is_driver', true);
+
+      // Fetch completed trips for counts
+      final tripsResponse = await supabase
+          .from('trips')
+          .select('driver_id')
+          .eq('status', 'completed');
+
+      final taxiResponse = await supabase
+          .from('taxi_requests')
+          .select('driver_id')
+          .eq('status', 'completed');
+
+      final Map<String, int> tripsCountMap = {};
+      
+      for (var row in tripsResponse) {
+        final driverId = row['driver_id']?.toString();
+        if (driverId != null) {
+          tripsCountMap[driverId] = (tripsCountMap[driverId] ?? 0) + 1;
+        }
+      }
+      
+      for (var row in taxiResponse) {
+        final driverId = row['driver_id']?.toString();
+        if (driverId != null) {
+          tripsCountMap[driverId] = (tripsCountMap[driverId] ?? 0) + 1;
+        }
+      }
+
+      final List<Map<String, dynamic>> processedDrivers = [];
+      for (var driver in response) {
+        final driverMap = Map<String, dynamic>.from(driver);
+        final driverId = driverMap['id']?.toString();
+        driverMap['completed_trips_count'] = tripsCountMap[driverId] ?? 0;
+        processedDrivers.add(driverMap);
+      }
+
+      // Sort by completed trips descending, then by created_at
+      processedDrivers.sort((a, b) {
+        final countA = a['completed_trips_count'] as int;
+        final countB = b['completed_trips_count'] as int;
+        if (countA != countB) {
+          return countB.compareTo(countA);
+        }
+        final dateA = DateTime.tryParse(a['created_at'].toString()) ?? DateTime.now();
+        final dateB = DateTime.tryParse(b['created_at'].toString()) ?? DateTime.now();
+        return dateB.compareTo(dateA);
+      });
+
       setState(() {
-        drivers = response;
+        drivers = processedDrivers;
         isLoading = false;
       });
     } catch (e) {
@@ -110,7 +157,17 @@ class _DriversListScreenState extends State<DriversListScreen> {
                                 child: driver['avatar_url'] == null ? const Icon(Icons.person) : null,
                               ),
                               title: Text(driver['full_name'] ?? 'بدون اسم'),
-                              subtitle: Text('${driver['phone'] ?? ''} - الحالة: $status'),
+                              subtitle: Column(
+                                crossAxisAlignment: CrossAxisAlignment.start,
+                                mainAxisSize: MainAxisSize.min,
+                                children: [
+                                  Text('${driver['phone'] ?? ''} - الحالة: $status'),
+                                  Text(
+                                    'الرحلات المكتملة: ${driver['completed_trips_count'] ?? 0}',
+                                    style: const TextStyle(color: Colors.green, fontWeight: FontWeight.bold),
+                                  ),
+                                ],
+                              ),
                               trailing: Row(
                                 mainAxisSize: MainAxisSize.min,
                                 children: [
