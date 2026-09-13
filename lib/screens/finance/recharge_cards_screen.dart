@@ -1,5 +1,6 @@
 import 'package:flutter/material.dart';
 import 'package:supabase_flutter/supabase_flutter.dart';
+import '../../shared/components/pagination_controls.dart';
 
 class RechargeCardsScreen extends StatefulWidget {
   const RechargeCardsScreen({super.key});
@@ -12,6 +13,10 @@ class _RechargeCardsScreenState extends State<RechargeCardsScreen> {
   final SupabaseClient supabase = Supabase.instance.client;
   List<dynamic> cards = [];
   bool isLoading = true;
+
+  // Pagination State
+  int currentPage = 0;
+  final int itemsPerPage = 25;
 
   String _formatDate(String? isoDate) {
     if (isoDate == null) return '-';
@@ -61,23 +66,51 @@ class _RechargeCardsScreenState extends State<RechargeCardsScreen> {
                 ? const Center(child: CircularProgressIndicator())
                 : cards.isEmpty
                     ? const Center(child: Text('لا توجد بيانات'))
-                    : DataTable(
-                        columns: const [
-                          DataColumn(label: Text('رقم العملية (مزود)')),
-                          DataColumn(label: Text('المبلغ')),
-                          DataColumn(label: Text('الحالة')),
-                          DataColumn(label: Text('الكابتن')),
-                          DataColumn(label: Text('تاريخ العملية')),
+                    : Column(
+                        crossAxisAlignment: CrossAxisAlignment.stretch,
+                        children: [
+                          Expanded(
+                            child: SingleChildScrollView(
+                              scrollDirection: Axis.vertical,
+                              child: SingleChildScrollView(
+                                scrollDirection: Axis.horizontal,
+                                child: DataTable(
+                                  columns: const [
+                                    DataColumn(label: Text('رقم العملية (مزود)')),
+                                    DataColumn(label: Text('المبلغ')),
+                                    DataColumn(label: Text('الحالة')),
+                                    DataColumn(label: Text('الكابتن')),
+                                    DataColumn(label: Text('تاريخ العملية')),
+                                  ],
+                                  rows: cards.skip(currentPage * itemsPerPage).take(itemsPerPage).map((card) {
+                                    return DataRow(cells: [
+                                      DataCell(Text(card['provider_tx_id']?.toString() ?? '-')),
+                                      DataCell(Text(card['amount'].toString())),
+                                      DataCell(Text(card['status'] ?? 'unknown')),
+                                      DataCell(Text(card['profiles']?['full_name'] ?? '-')),
+                                      DataCell(Text(_formatDate(card['created_at']))),
+                                    ]);
+                                  }).toList(),
+                                ),
+                              ),
+                            ),
+                          ),
+                          PaginationControls(
+                            currentPage: currentPage,
+                            totalItems: cards.length,
+                            itemsPerPage: itemsPerPage,
+                            onNext: () {
+                              setState(() {
+                                currentPage++;
+                              });
+                            },
+                            onPrevious: () {
+                              setState(() {
+                                currentPage--;
+                              });
+                            },
+                          ),
                         ],
-                        rows: cards.map((card) {
-                          return DataRow(cells: [
-                            DataCell(Text(card['provider_tx_id']?.toString() ?? '-')),
-                            DataCell(Text(card['amount'].toString())),
-                            DataCell(Text(card['status'] ?? 'unknown')),
-                            DataCell(Text(card['profiles']?['full_name'] ?? '-')),
-                            DataCell(Text(_formatDate(card['created_at']))),
-                          ]);
-                        }).toList(),
                       ),
           ),
         ],

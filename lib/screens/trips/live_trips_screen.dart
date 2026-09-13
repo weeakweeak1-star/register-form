@@ -2,6 +2,7 @@ import 'dart:async';
 import 'package:flutter/material.dart';
 import 'package:supabase_flutter/supabase_flutter.dart';
 import 'package:url_launcher/url_launcher.dart';
+import '../../shared/components/pagination_controls.dart';
 
 class LiveTripsScreen extends StatefulWidget {
   const LiveTripsScreen({super.key});
@@ -21,7 +22,12 @@ class _LiveTripsScreenState extends State<LiveTripsScreen> {
   String searchQuery = '';
   String searchType = 'رقم الرحلة'; // 'رقم الرحلة', 'اسم الكابتن', 'اسم العميل'
   String selectedStatus = 'الكل';
+  String selectedStatus = 'الكل';
   bool sortAscending = false;
+
+  // Pagination State
+  int currentPage = 0;
+  final int itemsPerPage = 25;
 
   final TextEditingController _searchController = TextEditingController();
 
@@ -105,6 +111,7 @@ class _LiveTripsScreenState extends State<LiveTripsScreen> {
       searchType = 'رقم الرحلة';
       selectedStatus = 'الكل';
       sortAscending = false;
+      currentPage = 0;
     });
     _fetchLiveTrips();
   }
@@ -271,6 +278,7 @@ class _LiveTripsScreenState extends State<LiveTripsScreen> {
                               if (val != null) {
                                 setState(() {
                                   searchType = val;
+                                  currentPage = 0;
                                   _applyFilters();
                                 });
                               }
@@ -294,6 +302,7 @@ class _LiveTripsScreenState extends State<LiveTripsScreen> {
                           onChanged: (val) {
                             setState(() {
                               searchQuery = val;
+                              currentPage = 0;
                               _applyFilters();
                             });
                           },
@@ -315,6 +324,7 @@ class _LiveTripsScreenState extends State<LiveTripsScreen> {
                             if (val != null) {
                               setState(() {
                                 selectedStatus = val;
+                                currentPage = 0;
                                 _applyFilters();
                               });
                             }
@@ -357,188 +367,210 @@ class _LiveTripsScreenState extends State<LiveTripsScreen> {
                 ? const Center(child: CircularProgressIndicator())
                 : filteredTrips.isEmpty
                     ? const Center(child: Text('لا توجد رحلات جارية تطابق الفلاتر المحددة', style: TextStyle(fontSize: 16, color: Colors.grey)))
-                    : ListView.builder(
-                        itemCount: filteredTrips.length,
-                        itemBuilder: (context, index) {
-                          final trip = filteredTrips[index];
-                          final status = trip['status'] ?? 'unknown';
-                          final tripType = trip['trip_type'] ?? trip['type'] ?? 'غير محدد';
-                          
-                          final customerName = trip['customer']?['full_name'] ?? 'عميل غير مسجل';
-                          final customerPhone = trip['customer']?['phone'];
-                          
-                          final driverName = trip['driver']?['full_name'] ?? 'جاري البحث...';
-                          final driverPhone = trip['driver']?['phone'];
+                    : Column(
+                        children: [
+                          Expanded(
+                            child: ListView.builder(
+                              itemCount: filteredTrips.skip(currentPage * itemsPerPage).take(itemsPerPage).length,
+                              itemBuilder: (context, index) {
+                                final paginatedList = filteredTrips.skip(currentPage * itemsPerPage).take(itemsPerPage).toList();
+                                final trip = paginatedList[index];
+                                final status = trip['status'] ?? 'unknown';
+                                final tripType = trip['trip_type'] ?? trip['type'] ?? 'غير محدد';
+                                
+                                final customerName = trip['customer']?['full_name'] ?? 'عميل غير مسجل';
+                                final customerPhone = trip['customer']?['phone'];
+                                
+                                final driverName = trip['driver']?['full_name'] ?? 'جاري البحث...';
+                                final driverPhone = trip['driver']?['phone'];
 
-                          return Card(
-                            margin: const EdgeInsets.only(bottom: 16),
-                            elevation: 3,
-                            shape: RoundedRectangleBorder(
-                              borderRadius: BorderRadius.circular(12),
-                              side: BorderSide(color: _getStatusColor(status).withOpacity(0.5), width: 1),
-                            ),
-                            child: Padding(
-                              padding: const EdgeInsets.all(16.0),
-                              child: Column(
-                                crossAxisAlignment: CrossAxisAlignment.start,
-                                children: [
-                                  // --- Header Row ---
-                                  Row(
-                                    mainAxisAlignment: MainAxisAlignment.spaceBetween,
-                                    children: [
-                                      Row(
-                                        children: [
-                                          Container(
-                                            padding: const EdgeInsets.symmetric(horizontal: 12, vertical: 6),
-                                            decoration: BoxDecoration(
-                                              color: _getStatusColor(status),
-                                              borderRadius: BorderRadius.circular(20),
-                                            ),
-                                            child: Text(
-                                              _translateStatus(status),
-                                              style: const TextStyle(color: Colors.white, fontWeight: FontWeight.bold, fontSize: 13),
-                                            ),
-                                          ),
-                                          const SizedBox(width: 12),
-                                          Text('نوع الرحلة: $tripType', style: const TextStyle(fontWeight: FontWeight.bold, color: Colors.grey)),
-                                        ],
-                                      ),
-                                      Row(
-                                        children: [
-                                          const Icon(Icons.timer, size: 16, color: Colors.grey),
-                                          const SizedBox(width: 4),
-                                          Text('منذ: ${_formatElapsedTime(trip['created_at'])}', style: const TextStyle(color: Colors.red, fontWeight: FontWeight.bold)),
-                                        ],
-                                      ),
-                                    ],
+                                return Card(
+                                  margin: const EdgeInsets.only(bottom: 16),
+                                  elevation: 3,
+                                  shape: RoundedRectangleBorder(
+                                    borderRadius: BorderRadius.circular(12),
+                                    side: BorderSide(color: _getStatusColor(status).withOpacity(0.5), width: 1),
                                   ),
-                                  const Divider(height: 24),
-                                  
-                                  // --- Body Row ---
-                                  Row(
-                                    crossAxisAlignment: CrossAxisAlignment.start,
-                                    children: [
-                                      // Customer Info
-                                      Expanded(
-                                        child: Column(
-                                          crossAxisAlignment: CrossAxisAlignment.start,
-                                          children: [
-                                            const Text('العميل', style: TextStyle(color: Colors.grey, fontSize: 12)),
-                                            const SizedBox(height: 4),
-                                            Row(
-                                              children: [
-                                                const Icon(Icons.person, size: 16, color: Colors.blueGrey),
-                                                const SizedBox(width: 4),
-                                                Expanded(child: Text(customerName, style: const TextStyle(fontWeight: FontWeight.bold))),
-                                              ],
-                                            ),
-                                            if (customerPhone != null) ...[
-                                              const SizedBox(height: 4),
-                                              InkWell(
-                                                onTap: () => _launchPhone(customerPhone),
-                                                child: Row(
-                                                  children: [
-                                                    const Icon(Icons.phone, size: 16, color: Colors.blue),
-                                                    const SizedBox(width: 4),
-                                                    Text(customerPhone, style: const TextStyle(color: Colors.blue, decoration: TextDecoration.underline)),
-                                                  ],
-                                                ),
-                                              ),
-                                            ]
-                                          ],
-                                        ),
-                                      ),
-                                      
-                                      // Driver Info
-                                      Expanded(
-                                        child: Column(
-                                          crossAxisAlignment: CrossAxisAlignment.start,
-                                          children: [
-                                            const Text('الكابتن', style: TextStyle(color: Colors.grey, fontSize: 12)),
-                                            const SizedBox(height: 4),
-                                            Row(
-                                              children: [
-                                                const Icon(Icons.drive_eta, size: 16, color: Colors.blueGrey),
-                                                const SizedBox(width: 4),
-                                                Expanded(child: Text(driverName, style: const TextStyle(fontWeight: FontWeight.bold))),
-                                              ],
-                                            ),
-                                            if (driverPhone != null) ...[
-                                              const SizedBox(height: 4),
-                                              InkWell(
-                                                onTap: () => _launchPhone(driverPhone),
-                                                child: Row(
-                                                  children: [
-                                                    const Icon(Icons.phone, size: 16, color: Colors.blue),
-                                                    const SizedBox(width: 4),
-                                                    Text(driverPhone, style: const TextStyle(color: Colors.blue, decoration: TextDecoration.underline)),
-                                                  ],
-                                                ),
-                                              ),
-                                            ]
-                                          ],
-                                        ),
-                                      ),
-                                    ],
-                                  ),
-                                  const SizedBox(height: 16),
-                                  
-                                  // Locations
-                                  Container(
-                                    padding: const EdgeInsets.all(12),
-                                    decoration: BoxDecoration(color: Colors.grey.shade50, borderRadius: BorderRadius.circular(8)),
+                                  child: Padding(
+                                    padding: const EdgeInsets.all(16.0),
                                     child: Column(
+                                      crossAxisAlignment: CrossAxisAlignment.start,
                                       children: [
+                                        // --- Header Row ---
                                         Row(
+                                          mainAxisAlignment: MainAxisAlignment.spaceBetween,
                                           children: [
-                                            const Icon(Icons.my_location, color: Colors.green, size: 16),
-                                            const SizedBox(width: 8),
-                                            Expanded(child: Text(trip['origin'] ?? 'غير محدد', maxLines: 1, overflow: TextOverflow.ellipsis)),
+                                            Row(
+                                              children: [
+                                                Container(
+                                                  padding: const EdgeInsets.symmetric(horizontal: 12, vertical: 6),
+                                                  decoration: BoxDecoration(
+                                                    color: _getStatusColor(status),
+                                                    borderRadius: BorderRadius.circular(20),
+                                                  ),
+                                                  child: Text(
+                                                    _translateStatus(status),
+                                                    style: const TextStyle(color: Colors.white, fontWeight: FontWeight.bold, fontSize: 13),
+                                                  ),
+                                                ),
+                                                const SizedBox(width: 12),
+                                                Text('نوع الرحلة: $tripType', style: const TextStyle(fontWeight: FontWeight.bold, color: Colors.grey)),
+                                              ],
+                                            ),
+                                            Row(
+                                              children: [
+                                                const Icon(Icons.timer, size: 16, color: Colors.grey),
+                                                const SizedBox(width: 4),
+                                                Text('منذ: ${_formatElapsedTime(trip['created_at'])}', style: const TextStyle(color: Colors.red, fontWeight: FontWeight.bold)),
+                                              ],
+                                            ),
                                           ],
                                         ),
-                                        const Padding(
-                                          padding: EdgeInsets.symmetric(horizontal: 7),
-                                          child: Align(alignment: Alignment.centerRight, child: Icon(Icons.more_vert, size: 16, color: Colors.grey)),
-                                        ),
+                                        const Divider(height: 24),
+                                        
+                                        // --- Body Row ---
                                         Row(
+                                          crossAxisAlignment: CrossAxisAlignment.start,
                                           children: [
-                                            const Icon(Icons.location_on, color: Colors.red, size: 16),
-                                            const SizedBox(width: 8),
-                                            Expanded(child: Text(trip['destination'] ?? 'غير محدد', maxLines: 1, overflow: TextOverflow.ellipsis)),
+                                            // Customer Info
+                                            Expanded(
+                                              child: Column(
+                                                crossAxisAlignment: CrossAxisAlignment.start,
+                                                children: [
+                                                  const Text('العميل', style: TextStyle(color: Colors.grey, fontSize: 12)),
+                                                  const SizedBox(height: 4),
+                                                  Row(
+                                                    children: [
+                                                      const Icon(Icons.person, size: 16, color: Colors.blueGrey),
+                                                      const SizedBox(width: 4),
+                                                      Expanded(child: Text(customerName, style: const TextStyle(fontWeight: FontWeight.bold))),
+                                                    ],
+                                                  ),
+                                                  if (customerPhone != null) ...[
+                                                    const SizedBox(height: 4),
+                                                    InkWell(
+                                                      onTap: () => _launchPhone(customerPhone),
+                                                      child: Row(
+                                                        children: [
+                                                          const Icon(Icons.phone, size: 16, color: Colors.blue),
+                                                          const SizedBox(width: 4),
+                                                          Text(customerPhone, style: const TextStyle(color: Colors.blue, decoration: TextDecoration.underline)),
+                                                        ],
+                                                      ),
+                                                    ),
+                                                  ]
+                                                ],
+                                              ),
+                                            ),
+                                            
+                                            // Driver Info
+                                            Expanded(
+                                              child: Column(
+                                                crossAxisAlignment: CrossAxisAlignment.start,
+                                                children: [
+                                                  const Text('الكابتن', style: TextStyle(color: Colors.grey, fontSize: 12)),
+                                                  const SizedBox(height: 4),
+                                                  Row(
+                                                    children: [
+                                                      const Icon(Icons.drive_eta, size: 16, color: Colors.blueGrey),
+                                                      const SizedBox(width: 4),
+                                                      Expanded(child: Text(driverName, style: const TextStyle(fontWeight: FontWeight.bold))),
+                                                    ],
+                                                  ),
+                                                  if (driverPhone != null) ...[
+                                                    const SizedBox(height: 4),
+                                                    InkWell(
+                                                      onTap: () => _launchPhone(driverPhone),
+                                                      child: Row(
+                                                        children: [
+                                                          const Icon(Icons.phone, size: 16, color: Colors.blue),
+                                                          const SizedBox(width: 4),
+                                                          Text(driverPhone, style: const TextStyle(color: Colors.blue, decoration: TextDecoration.underline)),
+                                                        ],
+                                                      ),
+                                                    ),
+                                                  ]
+                                                ],
+                                              ),
+                                            ),
                                           ],
                                         ),
+                                        const SizedBox(height: 16),
+                                        
+                                        // Locations
+                                        Container(
+                                          padding: const EdgeInsets.all(12),
+                                          decoration: BoxDecoration(color: Colors.grey.shade50, borderRadius: BorderRadius.circular(8)),
+                                          child: Column(
+                                            children: [
+                                              Row(
+                                                children: [
+                                                  const Icon(Icons.my_location, color: Colors.green, size: 16),
+                                                  const SizedBox(width: 8),
+                                                  Expanded(child: Text(trip['origin'] ?? 'غير محدد', maxLines: 1, overflow: TextOverflow.ellipsis)),
+                                                ],
+                                              ),
+                                              const Padding(
+                                                padding: EdgeInsets.symmetric(horizontal: 7),
+                                                child: Align(alignment: Alignment.centerRight, child: Icon(Icons.more_vert, size: 16, color: Colors.grey)),
+                                              ),
+                                              Row(
+                                                children: [
+                                                  const Icon(Icons.location_on, color: Colors.red, size: 16),
+                                                  const SizedBox(width: 8),
+                                                  Expanded(child: Text(trip['destination'] ?? 'غير محدد', maxLines: 1, overflow: TextOverflow.ellipsis)),
+                                                ],
+                                              ),
+                                            ],
+                                          ),
+                                        ),
+                                        
+                                        const SizedBox(height: 16),
+                                        
+                                        // --- Action Buttons ---
+                                        Row(
+                                          mainAxisAlignment: MainAxisAlignment.end,
+                                          children: [
+                                            TextButton.icon(
+                                              icon: const Icon(Icons.info_outline),
+                                              label: const Text('تفاصيل'),
+                                              onPressed: () {
+                                                // TODO: Open full details map
+                                                ScaffoldMessenger.of(context).showSnackBar(const SnackBar(content: Text('سيتم تفعيل عرض التفاصيل قريباً')));
+                                              },
+                                            ),
+                                            const SizedBox(width: 8),
+                                            ElevatedButton.icon(
+                                              icon: const Icon(Icons.cancel),
+                                              label: const Text('إلغاء إجباري'),
+                                              style: ElevatedButton.styleFrom(backgroundColor: Colors.red.shade50, foregroundColor: Colors.red, elevation: 0),
+                                              onPressed: () => _forceCancelTrip(trip),
+                                            ),
+                                          ],
+                                        )
                                       ],
                                     ),
                                   ),
-                                  
-                                  const SizedBox(height: 16),
-                                  
-                                  // --- Action Buttons ---
-                                  Row(
-                                    mainAxisAlignment: MainAxisAlignment.end,
-                                    children: [
-                                      TextButton.icon(
-                                        icon: const Icon(Icons.info_outline),
-                                        label: const Text('تفاصيل'),
-                                        onPressed: () {
-                                          // TODO: Open full details map
-                                          ScaffoldMessenger.of(context).showSnackBar(const SnackBar(content: Text('سيتم تفعيل عرض التفاصيل قريباً')));
-                                        },
-                                      ),
-                                      const SizedBox(width: 8),
-                                      ElevatedButton.icon(
-                                        icon: const Icon(Icons.cancel),
-                                        label: const Text('إلغاء إجباري'),
-                                        style: ElevatedButton.styleFrom(backgroundColor: Colors.red.shade50, foregroundColor: Colors.red, elevation: 0),
-                                        onPressed: () => _forceCancelTrip(trip),
-                                      ),
-                                    ],
-                                  )
-                                ],
-                              ),
+                                );
+                              },
                             ),
-                          );
-                        },
+                          ),
+                          PaginationControls(
+                            currentPage: currentPage,
+                            totalItems: filteredTrips.length,
+                            itemsPerPage: itemsPerPage,
+                            onNext: () {
+                              setState(() {
+                                currentPage++;
+                              });
+                            },
+                            onPrevious: () {
+                              setState(() {
+                                currentPage--;
+                              });
+                            },
+                          ),
+                        ],
                       ),
           ),
         ],

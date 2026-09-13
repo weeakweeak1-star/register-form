@@ -5,6 +5,7 @@ import 'components/edit_driver_dialog.dart';
 import 'components/driver_location_modal.dart';
 import 'components/driver_wallet_modal.dart';
 import 'components/driver_trips_modal.dart';
+import '../../shared/components/pagination_controls.dart';
 
 class DriversListScreen extends StatefulWidget {
   const DriversListScreen({super.key});
@@ -18,6 +19,10 @@ class _DriversListScreenState extends State<DriversListScreen> {
   List<dynamic> drivers = [];
   bool isLoading = true;
   String searchQuery = '';
+  
+  // Pagination State
+  int currentPage = 0;
+  final int itemsPerPage = 25;
 
   @override
   void initState() {
@@ -26,22 +31,36 @@ class _DriversListScreenState extends State<DriversListScreen> {
   }
 
   Future<void> _fetchDrivers() async {
+    setState(() {
+      isLoading = true;
+      currentPage = 0;
+    });
     try {
       final response = await supabase
           .from('profiles')
           .select()
           .eq('is_driver', true);
 
-      // Fetch completed trips for counts
-      final tripsResponse = await supabase
-          .from('trips')
-          .select('driver_id')
-          .eq('status', 'completed');
+      // Fetch completed trips for counts safely
+      List<dynamic> tripsResponse = [];
+      try {
+        tripsResponse = await supabase
+            .from('trips')
+            .select('driver_id')
+            .eq('status', 'completed');
+      } catch (e) {
+        debugPrint('Error fetching trips for counts: $e');
+      }
 
-      final taxiResponse = await supabase
-          .from('taxi_requests')
-          .select('driver_id')
-          .eq('status', 'completed');
+      List<dynamic> taxiResponse = [];
+      try {
+        taxiResponse = await supabase
+            .from('taxi_requests')
+            .select('driver_id')
+            .eq('status', 'completed');
+      } catch (e) {
+        debugPrint('Error fetching taxi requests for counts: $e');
+      }
 
       final Map<String, int> tripsCountMap = {};
       
@@ -111,6 +130,8 @@ class _DriversListScreenState extends State<DriversListScreen> {
       return name.contains(q) || phone.contains(q);
     }).toList();
 
+    final paginatedDrivers = filteredDrivers.skip(currentPage * itemsPerPage).take(itemsPerPage).toList();
+
     return Padding(
       padding: const EdgeInsets.all(16.0),
       child: Column(
@@ -127,6 +148,7 @@ class _DriversListScreenState extends State<DriversListScreen> {
                   onChanged: (value) {
                     setState(() {
                       searchQuery = value;
+                      currentPage = 0;
                     });
                   },
                 ),
@@ -145,10 +167,13 @@ class _DriversListScreenState extends State<DriversListScreen> {
                 ? const Center(child: CircularProgressIndicator())
                 : filteredDrivers.isEmpty
                     ? const Center(child: Text('لا يوجد كباتن'))
-                    : ListView.builder(
-                        itemCount: filteredDrivers.length,
-                        itemBuilder: (context, index) {
-                          final driver = filteredDrivers[index];
+                    : Column(
+                        children: [
+                          Expanded(
+                            child: ListView.builder(
+                              itemCount: paginatedDrivers.length,
+                              itemBuilder: (context, index) {
+                                final driver = paginatedDrivers[index];
                           final status = driver['driver_status'] ?? 'pending';
                           return Card(
                             child: ListTile(
@@ -237,6 +262,24 @@ class _DriversListScreenState extends State<DriversListScreen> {
                           );
                         },
                       ),
+                    ),
+                    PaginationControls(
+                      currentPage: currentPage,
+                      totalItems: filteredDrivers.length,
+                      itemsPerPage: itemsPerPage,
+                      onNext: () {
+                        setState(() {
+                          currentPage++;
+                        });
+                      },
+                      onPrevious: () {
+                        setState(() {
+                          currentPage--;
+                        });
+                      },
+                    ),
+                  ],
+                ),
           ),
         ],
       ),

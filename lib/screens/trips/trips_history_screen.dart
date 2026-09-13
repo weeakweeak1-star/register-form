@@ -1,5 +1,6 @@
 import 'package:flutter/material.dart';
 import 'package:supabase_flutter/supabase_flutter.dart';
+import '../../shared/components/pagination_controls.dart';
 
 class TripsHistoryScreen extends StatefulWidget {
   const TripsHistoryScreen({super.key});
@@ -12,6 +13,15 @@ class _TripsHistoryScreenState extends State<TripsHistoryScreen> {
   final SupabaseClient supabase = Supabase.instance.client;
   List<dynamic> trips = [];
   bool isLoading = true;
+  
+  // Pagination State
+  int currentPage = 0;
+  final int itemsPerPage = 25;
+  
+  List<dynamic> get paginatedTrips {
+    final startIndex = currentPage * itemsPerPage;
+    return trips.skip(startIndex).take(itemsPerPage).toList();
+  }
 
   // Filters State
   String searchQuery = '';
@@ -49,30 +59,39 @@ class _TripsHistoryScreenState extends State<TripsHistoryScreen> {
   }
 
   Future<void> _fetchTotalCompletedTrips() async {
+    int tripsCount = 0;
+    int taxiCount = 0;
+
     try {
-      final tripsCount = await supabase
+      tripsCount = await supabase
           .from('trips')
           .count(CountOption.exact)
           .eq('status', 'completed');
-          
-      final taxiCount = await supabase
+    } catch (e) {
+      debugPrint('Error fetching trips count: $e');
+    }
+
+    try {
+      taxiCount = await supabase
           .from('taxi_requests')
           .count(CountOption.exact)
           .eq('status', 'completed');
-          
+    } catch (e) {
+      debugPrint('Error fetching taxi requests count: $e');
+    }
+
+    if (mounted) {
       setState(() {
         totalCompletedTrips = tripsCount + taxiCount;
       });
-    } catch (e) {
-      debugPrint('Error fetching completed trips count: $e');
-      if (mounted) {
-        ScaffoldMessenger.of(context).showSnackBar(SnackBar(content: Text('Error fetching count: $e')));
-      }
     }
   }
 
   Future<void> _fetchHistory() async {
-    setState(() => isLoading = true);
+    setState(() {
+      isLoading = true;
+      currentPage = 0;
+    });
     try {
       final String selectStr = (searchQuery.isNotEmpty && searchType == 'اسم الكابتن') 
           ? '*, profiles!driver_id!inner(full_name)'
@@ -90,7 +109,6 @@ class _TripsHistoryScreenState extends State<TripsHistoryScreen> {
         taxiQuery = taxiQuery.neq('status', 'ongoing'); 
       }
 
-      // Type Filter logic:
       bool fetchTrips = true;
       bool fetchTaxi = true;
       
@@ -99,7 +117,13 @@ class _TripsHistoryScreenState extends State<TripsHistoryScreen> {
           fetchTrips = false;
         } else {
           fetchTaxi = false;
-          tripsQuery = tripsQuery.eq('trip_type', selectedType); 
+          // trips table does not have 'trip_type' column.
+          // pool = is_private: false, intercity = is_private: true
+          if (selectedType == 'pool') {
+            tripsQuery = tripsQuery.eq('is_private', false);
+          } else if (selectedType == 'intercity') {
+            tripsQuery = tripsQuery.eq('is_private', true);
+          }
         }
       }
 
@@ -122,20 +146,30 @@ class _TripsHistoryScreenState extends State<TripsHistoryScreen> {
       List<dynamic> combined = [];
       
       if (fetchTrips) {
-        final tripsResponse = await tripsQuery.order('created_at', ascending: false).limit(fetchLimit);
-        for(var t in tripsResponse) {
-            final m = Map<String,dynamic>.from(t);
-            if (m['trip_type'] == null) m['trip_type'] = 'intercity';
-            combined.add(m);
+        try {
+          final tripsResponse = await tripsQuery.order('created_at', ascending: false).limit(fetchLimit);
+          for(var t in tripsResponse) {
+              final m = Map<String,dynamic>.from(t);
+              if (m['trip_type'] == null) {
+                  m['trip_type'] = (m['is_private'] == true) ? 'intercity' : 'pool';
+              }
+              combined.add(m);
+          }
+        } catch (e) {
+          debugPrint('Error fetching trips: $e');
         }
       }
       
       if (fetchTaxi) {
-        final taxiResponse = await taxiQuery.order('created_at', ascending: false).limit(fetchLimit);
-        for(var t in taxiResponse) {
-            final m = Map<String,dynamic>.from(t);
-            m['trip_type'] = 'taxi';
-            combined.add(m);
+        try {
+          final taxiResponse = await taxiQuery.order('created_at', ascending: false).limit(fetchLimit);
+          for(var t in taxiResponse) {
+              final m = Map<String,dynamic>.from(t);
+              m['trip_type'] = 'taxi';
+              combined.add(m);
+          }
+        } catch (e) {
+          debugPrint('Error fetching taxi_requests: $e');
         }
       }
 
@@ -404,10 +438,13 @@ class _TripsHistoryScreenState extends State<TripsHistoryScreen> {
                 ? const Center(child: CircularProgressIndicator())
                 : trips.isEmpty
                     ? const Center(child: Text('لا توجد بيانات تطابق الفلاتر المحددة', style: TextStyle(fontSize: 16, color: Colors.grey)))
-                    : ListView.builder(
-                        itemCount: trips.length,
-                        itemBuilder: (context, index) {
-                          final trip = trips[index];
+                    : Column(
+                        children: [
+                          Expanded(
+                            child: ListView.builder(
+                              itemCount: paginatedTrips.length,
+                              itemBuilder: (context, index) {
+                                final trip = paginatedTrips[index];
                           final status = trip['status'] ?? 'unknown';
                           final tripType = trip['trip_type'] ?? trip['type'] ?? 'غير محدد';
                           return Card(
@@ -498,6 +535,24 @@ class _TripsHistoryScreenState extends State<TripsHistoryScreen> {
                           );
                         },
                       ),
+                    ),
+                    PaginationControls(
+                      currentPage: currentPage,
+                      totalItems: trips.length,
+                      itemsPerPage: itemsPerPage,
+                      onNext: () {
+                        setState(() {
+                          currentPage++;
+                        });
+                      },
+                      onPrevious: () {
+                        setState(() {
+                          currentPage--;
+                        });
+                      },
+                    ),
+                  ],
+                ),
           ),
         ],
       ),

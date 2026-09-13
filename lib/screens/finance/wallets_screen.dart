@@ -1,6 +1,7 @@
 import 'package:flutter/material.dart';
 import 'package:supabase_flutter/supabase_flutter.dart';
 import 'package:intl/intl.dart';
+import '../../shared/components/pagination_controls.dart';
 
 class WalletsScreen extends StatefulWidget {
   const WalletsScreen({super.key});
@@ -15,9 +16,16 @@ class _WalletsScreenState extends State<WalletsScreen> {
   List<dynamic> searchResults = [];
   bool isSearching = false;
 
+  // Pagination State
+  int currentPage = 0;
+  final int itemsPerPage = 25;
+
   Future<void> _searchCaptain() async {
     if (searchQuery.isEmpty) return;
-    setState(() => isSearching = true);
+    setState(() {
+      isSearching = true;
+      currentPage = 0;
+    });
     try {
       final response = await supabase
           .from('profiles')
@@ -136,7 +144,9 @@ class _WalletsScreenState extends State<WalletsScreen> {
                     labelText: 'رقم الهاتف',
                     border: OutlineInputBorder(),
                   ),
-                  onChanged: (val) => searchQuery = val,
+                  onChanged: (val) {
+                    searchQuery = val;
+                  },
                 ),
               ),
               const SizedBox(width: 16),
@@ -151,27 +161,53 @@ class _WalletsScreenState extends State<WalletsScreen> {
           Expanded(
             child: isSearching
                 ? const Center(child: CircularProgressIndicator())
-                : ListView.builder(
-                    itemCount: searchResults.length,
-                    itemBuilder: (context, index) {
-                      final captain = searchResults[index];
-                      final wallets = captain['driver_wallets'];
-                      final currentBalance = (wallets != null && wallets is List && wallets.isNotEmpty) 
-                          ? wallets[0]['balance'] 
-                          : 0;
-                      return Card(
-                        child: ListTile(
-                          leading: const CircleAvatar(child: Icon(Icons.account_balance_wallet)),
-                          title: Text(captain['full_name'] ?? 'بدون اسم'),
-                          subtitle: Text('الرقم: ${captain['phone']}\nالرصيد الحالي: ${NumberFormat('#,##0').format(currentBalance)} د.ع'),
-                          trailing: ElevatedButton(
-                            onPressed: () => _showTopUpDialog(captain),
-                            child: const Text('إضافة / خصم رصيد'),
+                : searchResults.isEmpty && searchQuery.isNotEmpty
+                    ? const Center(child: Text('لا يوجد كباتن مطابقين للبحث'))
+                    : searchResults.isEmpty
+                        ? const Center(child: Text('يرجى البحث برقم هاتف الكابتن'))
+                        : Column(
+                            children: [
+                              Expanded(
+                                child: ListView.builder(
+                                  itemCount: searchResults.skip(currentPage * itemsPerPage).take(itemsPerPage).length,
+                                  itemBuilder: (context, index) {
+                                    final paginatedList = searchResults.skip(currentPage * itemsPerPage).take(itemsPerPage).toList();
+                                    final captain = paginatedList[index];
+                                    final wallets = captain['driver_wallets'];
+                                    final currentBalance = (wallets != null && wallets is List && wallets.isNotEmpty) 
+                                        ? wallets[0]['balance'] 
+                                        : 0;
+                                    return Card(
+                                      child: ListTile(
+                                        leading: const CircleAvatar(child: Icon(Icons.account_balance_wallet)),
+                                        title: Text(captain['full_name'] ?? 'بدون اسم'),
+                                        subtitle: Text('الرقم: ${captain['phone']}\nالرصيد الحالي: ${NumberFormat('#,##0').format(currentBalance)} د.ع'),
+                                        trailing: ElevatedButton(
+                                          onPressed: () => _showTopUpDialog(captain),
+                                          child: const Text('إضافة / خصم رصيد'),
+                                        ),
+                                      ),
+                                    );
+                                  },
+                                ),
+                              ),
+                              PaginationControls(
+                                currentPage: currentPage,
+                                totalItems: searchResults.length,
+                                itemsPerPage: itemsPerPage,
+                                onNext: () {
+                                  setState(() {
+                                    currentPage++;
+                                  });
+                                },
+                                onPrevious: () {
+                                  setState(() {
+                                    currentPage--;
+                                  });
+                                },
+                              ),
+                            ],
                           ),
-                        ),
-                      );
-                    },
-                  ),
           ),
         ],
       ),

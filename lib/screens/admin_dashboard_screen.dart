@@ -1,6 +1,7 @@
 import 'package:flutter/material.dart';
 import 'package:go_router/go_router.dart';
 import 'package:supabase_flutter/supabase_flutter.dart';
+import '../shared/components/pagination_controls.dart';
 
 class AdminDashboardScreen extends StatefulWidget {
   const AdminDashboardScreen({super.key});
@@ -19,6 +20,11 @@ class _AdminDashboardScreenState extends State<AdminDashboardScreen> {
   // Stats
   int _activeDrivers = 0;
   int _liveTrips = 0;
+  
+  // Pagination
+  int _pendingPage = 0;
+  int _rejectedPage = 0;
+  final int itemsPerPage = 25;
 
   @override
   void initState() {
@@ -27,7 +33,11 @@ class _AdminDashboardScreenState extends State<AdminDashboardScreen> {
   }
 
   Future<void> _fetchDashboardData() async {
-    setState(() => _isLoading = true);
+    setState(() {
+      _isLoading = true;
+      _pendingPage = 0;
+      _rejectedPage = 0;
+    });
     try {
       // 1. Fetch Applications
       final data = await _supabase
@@ -180,8 +190,8 @@ class _AdminDashboardScreenState extends State<AdminDashboardScreen> {
                           ? const Center(child: CircularProgressIndicator())
                           : TabBarView(
                               children: [
-                                _buildList(_pendingApps),
-                                _buildList(_rejectedApps, isRejected: true),
+                                _buildList(_pendingApps, _pendingPage, (page) => setState(() => _pendingPage = page)),
+                                _buildList(_rejectedApps, _rejectedPage, (page) => setState(() => _rejectedPage = page), isRejected: true),
                               ],
                             ),
                     ),
@@ -195,7 +205,7 @@ class _AdminDashboardScreenState extends State<AdminDashboardScreen> {
     );
   }
 
-  Widget _buildList(List<dynamic> apps, {bool isRejected = false}) {
+  Widget _buildList(List<dynamic> apps, int currentPage, ValueChanged<int> onPageChanged, {bool isRejected = false}) {
     if (apps.isEmpty) {
       return Center(
         child: Column(
@@ -212,12 +222,17 @@ class _AdminDashboardScreenState extends State<AdminDashboardScreen> {
       );
     }
     
-    return ListView.builder(
-      padding: const EdgeInsets.all(16),
-      itemCount: apps.length,
-      itemBuilder: (context, index) {
-        final app = apps[index];
-        return Container(
+    final paginatedApps = apps.skip(currentPage * itemsPerPage).take(itemsPerPage).toList();
+    
+    return Column(
+      children: [
+        Expanded(
+          child: ListView.builder(
+            padding: const EdgeInsets.all(16),
+            itemCount: paginatedApps.length,
+            itemBuilder: (context, index) {
+              final app = paginatedApps[index];
+              return Container(
           margin: const EdgeInsets.only(bottom: 12),
           decoration: BoxDecoration(
             color: Colors.white,
@@ -275,6 +290,16 @@ class _AdminDashboardScreenState extends State<AdminDashboardScreen> {
           ),
         );
       },
+    ),
+        ),
+        PaginationControls(
+          currentPage: currentPage,
+          totalItems: apps.length,
+          itemsPerPage: itemsPerPage,
+          onNext: () => onPageChanged(currentPage + 1),
+          onPrevious: () => onPageChanged(currentPage - 1),
+        ),
+      ],
     );
   }
 }

@@ -1,5 +1,6 @@
 import 'package:flutter/material.dart';
 import 'package:supabase_flutter/supabase_flutter.dart';
+import '../../shared/components/pagination_controls.dart';
 
 class ComplaintsScreen extends StatefulWidget {
   const ComplaintsScreen({super.key});
@@ -13,6 +14,10 @@ class _ComplaintsScreenState extends State<ComplaintsScreen> {
   List<dynamic> complaints = [];
   bool isLoading = true;
 
+  // Pagination State
+  int currentPage = 0;
+  final int itemsPerPage = 25;
+
   @override
   void initState() {
     super.initState();
@@ -20,6 +25,10 @@ class _ComplaintsScreenState extends State<ComplaintsScreen> {
   }
 
   Future<void> _fetchComplaints() async {
+    setState(() {
+      isLoading = true;
+      currentPage = 0;
+    });
     try {
       final response = await supabase
           .from('complaints')
@@ -45,6 +54,8 @@ class _ComplaintsScreenState extends State<ComplaintsScreen> {
 
   @override
   Widget build(BuildContext context) {
+    final paginatedComplaints = complaints.skip(currentPage * itemsPerPage).take(itemsPerPage).toList();
+
     return Padding(
       padding: const EdgeInsets.all(16.0),
       child: Column(
@@ -57,28 +68,49 @@ class _ComplaintsScreenState extends State<ComplaintsScreen> {
                 ? const Center(child: CircularProgressIndicator())
                 : complaints.isEmpty
                     ? const Center(child: Text('لا توجد شكاوى جديدة'))
-                    : ListView.builder(
-                        itemCount: complaints.length,
-                        itemBuilder: (context, index) {
-                          final complaint = complaints[index];
-                          final status = complaint['status'] ?? 'pending';
-                          return Card(
-                            child: ListTile(
-                              leading: Icon(
-                                Icons.report,
-                                color: status == 'processed' ? Colors.green : Colors.orange,
-                              ),
-                              title: Text(complaint['message'] ?? 'بدون نص'),
-                              subtitle: Text('رقم الرحلة: ${complaint['trip_id']} | الحالة: $status'),
-                              trailing: status != 'processed'
-                                  ? ElevatedButton(
-                                      onPressed: () => _markAsProcessed(complaint['id']),
-                                      child: const Text('تمت المعالجة'),
-                                    )
-                                  : const Icon(Icons.check_circle, color: Colors.green),
+                    : Column(
+                        children: [
+                          Expanded(
+                            child: ListView.builder(
+                              itemCount: paginatedComplaints.length,
+                              itemBuilder: (context, index) {
+                                final complaint = paginatedComplaints[index];
+                                final status = complaint['status'] ?? 'pending';
+                                return Card(
+                                  child: ListTile(
+                                    leading: Icon(
+                                      Icons.report,
+                                      color: status == 'processed' ? Colors.green : Colors.orange,
+                                    ),
+                                    title: Text(complaint['message'] ?? 'بدون نص'),
+                                    subtitle: Text('رقم الرحلة: ${complaint['trip_id']} | الحالة: $status'),
+                                    trailing: status != 'processed'
+                                        ? ElevatedButton(
+                                            onPressed: () => _markAsProcessed(complaint['id']),
+                                            child: const Text('تمت المعالجة'),
+                                          )
+                                        : const Icon(Icons.check_circle, color: Colors.green),
+                                  ),
+                                );
+                              },
                             ),
-                          );
-                        },
+                          ),
+                          PaginationControls(
+                            currentPage: currentPage,
+                            totalItems: complaints.length,
+                            itemsPerPage: itemsPerPage,
+                            onNext: () {
+                              setState(() {
+                                currentPage++;
+                              });
+                            },
+                            onPrevious: () {
+                              setState(() {
+                                currentPage--;
+                              });
+                            },
+                          ),
+                        ],
                       ),
           ),
         ],

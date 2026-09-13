@@ -1,5 +1,6 @@
 import 'package:flutter/material.dart';
 import 'package:supabase_flutter/supabase_flutter.dart';
+import '../../shared/components/pagination_controls.dart';
 
 class NotificationsScreen extends StatefulWidget {
   const NotificationsScreen({super.key});
@@ -19,6 +20,10 @@ class _NotificationsScreenState extends State<NotificationsScreen> {
   List<dynamic> _drivers = [];
   bool _isFetchingDrivers = false;
   String? _selectedDriverId;
+  
+  // Pagination State
+  int _currentPage = 0;
+  final int _itemsPerPage = 25;
 
   @override
   void initState() {
@@ -103,6 +108,8 @@ class _NotificationsScreenState extends State<NotificationsScreen> {
       final query = _searchQuery.toLowerCase();
       return name.contains(query) || phone.contains(query);
     }).toList();
+    
+    final paginatedDrivers = filteredDrivers.skip(_currentPage * _itemsPerPage).take(_itemsPerPage).toList();
 
     return SingleChildScrollView(
       padding: const EdgeInsets.all(16.0),
@@ -162,6 +169,7 @@ class _NotificationsScreenState extends State<NotificationsScreen> {
                 setState(() {
                   _searchQuery = value;
                   _selectedDriverId = null; // Reset selection when searching
+                  _currentPage = 0;
                 });
               },
             ),
@@ -170,29 +178,50 @@ class _NotificationsScreenState extends State<NotificationsScreen> {
               const CircularProgressIndicator()
             else
               Container(
-                height: 200,
+                height: 350,
                 decoration: BoxDecoration(
                   border: Border.all(color: Colors.grey),
                   borderRadius: BorderRadius.circular(4),
                 ),
-                child: ListView.builder(
-                  itemCount: filteredDrivers.length,
-                  itemBuilder: (context, index) {
-                    final driver = filteredDrivers[index];
-                    final isSelected = _selectedDriverId == driver['id'];
-                    return ListTile(
-                      title: Text(driver['full_name'] ?? 'بدون اسم'),
-                      subtitle: Text(driver['phone'] ?? 'لا يوجد رقم'),
-                      selected: isSelected,
-                      selectedTileColor: Colors.blue.withOpacity(0.1),
-                      onTap: () {
+                child: Column(
+                  children: [
+                    Expanded(
+                      child: ListView.builder(
+                        itemCount: paginatedDrivers.length,
+                        itemBuilder: (context, index) {
+                          final driver = paginatedDrivers[index];
+                          final isSelected = _selectedDriverId == driver['id'];
+                          return ListTile(
+                            title: Text(driver['full_name'] ?? 'بدون اسم'),
+                            subtitle: Text(driver['phone'] ?? 'لا يوجد رقم'),
+                            selected: isSelected,
+                            selectedTileColor: Colors.blue.withOpacity(0.1),
+                            onTap: () {
+                              setState(() {
+                                _selectedDriverId = driver['id'];
+                              });
+                            },
+                            trailing: isSelected ? const Icon(Icons.check, color: Colors.blue) : null,
+                          );
+                        },
+                      ),
+                    ),
+                    PaginationControls(
+                      currentPage: _currentPage,
+                      totalItems: filteredDrivers.length,
+                      itemsPerPage: _itemsPerPage,
+                      onNext: () {
                         setState(() {
-                          _selectedDriverId = driver['id'];
+                          _currentPage++;
                         });
                       },
-                      trailing: isSelected ? const Icon(Icons.check, color: Colors.blue) : null,
-                    );
-                  },
+                      onPrevious: () {
+                        setState(() {
+                          _currentPage--;
+                        });
+                      },
+                    ),
+                  ],
                 ),
               ),
           ],
