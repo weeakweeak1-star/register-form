@@ -225,6 +225,110 @@ class _LiveTripsScreenState extends State<LiveTripsScreen> {
     }
   }
 
+  void _showTripDetails(dynamic trip, String tripType) {
+    final status = trip['status'] ?? 'unknown';
+    
+    showDialog(
+      context: context,
+      builder: (context) {
+        return AlertDialog(
+          shape: RoundedRectangleBorder(borderRadius: BorderRadius.circular(16)),
+          title: Row(
+            children: [
+              const Icon(Icons.info_outline, color: Colors.indigo),
+              const SizedBox(width: 8),
+              const Text('تفاصيل الرحلة', style: TextStyle(fontWeight: FontWeight.bold)),
+              const Spacer(),
+              IconButton(
+                icon: const Icon(Icons.close),
+                onPressed: () => Navigator.pop(context),
+              )
+            ],
+          ),
+          content: SizedBox(
+            width: double.maxFinite,
+            child: SingleChildScrollView(
+              child: Column(
+                mainAxisSize: MainAxisSize.min,
+                crossAxisAlignment: CrossAxisAlignment.start,
+                children: [
+                  _buildDetailRow('معرف الرحلة (ID)', trip['id']?.toString() ?? '-'),
+                  const Divider(),
+                  _buildDetailRow('نوع الرحلة', tripType),
+                  const Divider(),
+                  _buildDetailRow('حالة الرحلة', _translateStatus(status), valueColor: _getStatusColor(status)),
+                  const Divider(),
+                  _buildDetailRow('تاريخ الإنشاء', _formatDate(trip['created_at'] ?? '')),
+                  const Divider(),
+                  _buildDetailRow('العميل', trip['customer']?['full_name'] ?? 'غير متوفر'),
+                  const Divider(),
+                  _buildDetailRow('الكابتن', trip['driver']?['full_name'] ?? 'غير متوفر'),
+                  const Divider(),
+                  _buildDetailRow('نقطة الانطلاق', trip['origin'] ?? 'غير متوفر'),
+                  const Divider(),
+                  _buildDetailRow('نقطة الوصول', trip['destination'] ?? 'غير متوفر'),
+                  const Divider(),
+                  _buildDetailRow('السعر', '${trip['price_per_seat'] ?? trip['total_price'] ?? 0} د.ع'),
+                  if (trip['seats'] != null) ...[
+                    const Divider(),
+                    _buildDetailRow('عدد المقاعد', trip['seats'].toString()),
+                  ],
+                  if (trip['scheduled_time'] != null) ...[
+                    const Divider(),
+                    _buildDetailRow('وقت الجدولة', _formatDate(trip['scheduled_time'])),
+                  ],
+                ],
+              ),
+            ),
+          ),
+          actions: [
+            TextButton(
+              onPressed: () => Navigator.pop(context),
+              child: const Text('إغلاق'),
+            ),
+          ],
+        );
+      },
+    );
+  }
+
+  String _formatDate(String isoDate) {
+    if (isoDate.isEmpty) return '-';
+    try {
+      final date = DateTime.parse(isoDate).toLocal();
+      final hour = date.hour > 12 ? date.hour - 12 : (date.hour == 0 ? 12 : date.hour);
+      final amPm = date.hour >= 12 ? 'م' : 'ص';
+      return '${date.year}-${date.month.toString().padLeft(2, '0')}-${date.day.toString().padLeft(2, '0')} $hour:${date.minute.toString().padLeft(2, '0')} $amPm';
+    } catch (e) {
+      return isoDate;
+    }
+  }
+
+  Widget _buildDetailRow(String label, String value, {Color? valueColor}) {
+    return Padding(
+      padding: const EdgeInsets.symmetric(vertical: 8.0),
+      child: Row(
+        crossAxisAlignment: CrossAxisAlignment.start,
+        children: [
+          Expanded(
+            flex: 2,
+            child: Text(
+              label,
+              style: const TextStyle(fontWeight: FontWeight.bold, color: Colors.grey),
+            ),
+          ),
+          Expanded(
+            flex: 3,
+            child: Text(
+              value,
+              style: TextStyle(fontWeight: FontWeight.bold, color: valueColor ?? Colors.black87),
+            ),
+          ),
+        ],
+      ),
+    );
+  }
+
   @override
   Widget build(BuildContext context) {
     return Padding(
@@ -535,8 +639,7 @@ class _LiveTripsScreenState extends State<LiveTripsScreen> {
                                               icon: const Icon(Icons.info_outline),
                                               label: const Text('تفاصيل'),
                                               onPressed: () {
-                                                // TODO: Open full details map
-                                                ScaffoldMessenger.of(context).showSnackBar(const SnackBar(content: Text('سيتم تفعيل عرض التفاصيل قريباً')));
+                                                _showTripDetails(trip, tripType);
                                               },
                                             ),
                                             const SizedBox(width: 8),

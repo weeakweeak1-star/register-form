@@ -235,6 +235,96 @@ class _TripsHistoryScreenState extends State<TripsHistoryScreen> {
     }
   }
 
+  void _showTripDetails(dynamic trip, String tripType) {
+    final status = trip['status'] ?? 'unknown';
+    
+    showDialog(
+      context: context,
+      builder: (context) {
+        return AlertDialog(
+          shape: RoundedRectangleBorder(borderRadius: BorderRadius.circular(16)),
+          title: Row(
+            children: [
+              const Icon(Icons.info_outline, color: Colors.indigo),
+              const SizedBox(width: 8),
+              const Text('تفاصيل الرحلة', style: TextStyle(fontWeight: FontWeight.bold)),
+              const Spacer(),
+              IconButton(
+                icon: const Icon(Icons.close),
+                onPressed: () => Navigator.pop(context),
+              )
+            ],
+          ),
+          content: SizedBox(
+            width: double.maxFinite,
+            child: SingleChildScrollView(
+              child: Column(
+                mainAxisSize: MainAxisSize.min,
+                crossAxisAlignment: CrossAxisAlignment.start,
+                children: [
+                  _buildDetailRow('معرف الرحلة (ID)', trip['id']?.toString() ?? '-'),
+                  const Divider(),
+                  _buildDetailRow('نوع الرحلة', tripType),
+                  const Divider(),
+                  _buildDetailRow('حالة الرحلة', _translateStatus(status), valueColor: _getStatusColor(status)),
+                  const Divider(),
+                  _buildDetailRow('تاريخ الإنشاء', _formatDate(trip['created_at'])),
+                  const Divider(),
+                  _buildDetailRow('اسم الكابتن', trip['profiles']?['full_name'] ?? 'غير متوفر'),
+                  const Divider(),
+                  _buildDetailRow('نقطة الانطلاق', trip['origin'] ?? 'غير متوفر'),
+                  const Divider(),
+                  _buildDetailRow('نقطة الوصول', trip['destination'] ?? 'غير متوفر'),
+                  const Divider(),
+                  _buildDetailRow('السعر', '${trip['price_per_seat'] ?? trip['total_price'] ?? 0} د.ع'),
+                  if (trip['seats'] != null) ...[
+                    const Divider(),
+                    _buildDetailRow('عدد المقاعد', trip['seats'].toString()),
+                  ],
+                  if (trip['scheduled_time'] != null) ...[
+                    const Divider(),
+                    _buildDetailRow('وقت الجدولة', _formatDate(trip['scheduled_time'])),
+                  ],
+                ],
+              ),
+            ),
+          ),
+          actions: [
+            TextButton(
+              onPressed: () => Navigator.pop(context),
+              child: const Text('إغلاق'),
+            ),
+          ],
+        );
+      },
+    );
+  }
+
+  Widget _buildDetailRow(String label, String value, {Color? valueColor}) {
+    return Padding(
+      padding: const EdgeInsets.symmetric(vertical: 8.0),
+      child: Row(
+        crossAxisAlignment: CrossAxisAlignment.start,
+        children: [
+          Expanded(
+            flex: 2,
+            child: Text(
+              label,
+              style: const TextStyle(fontWeight: FontWeight.bold, color: Colors.grey),
+            ),
+          ),
+          Expanded(
+            flex: 3,
+            child: Text(
+              value,
+              style: TextStyle(fontWeight: FontWeight.bold, color: valueColor ?? Colors.black87),
+            ),
+          ),
+        ],
+      ),
+    );
+  }
+
   @override
   Widget build(BuildContext context) {
     return Padding(
@@ -452,9 +542,7 @@ class _TripsHistoryScreenState extends State<TripsHistoryScreen> {
                             shape: RoundedRectangleBorder(borderRadius: BorderRadius.circular(10)),
                             child: InkWell(
                               borderRadius: BorderRadius.circular(10),
-                              onTap: () {
-                                // Show details
-                              },
+                              onTap: () => _showTripDetails(trip, tripType),
                               child: Padding(
                                 padding: const EdgeInsets.all(16.0),
                                 child: Row(
