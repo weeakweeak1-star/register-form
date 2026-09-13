@@ -50,13 +50,18 @@ class _TripsHistoryScreenState extends State<TripsHistoryScreen> {
 
   Future<void> _fetchTotalCompletedTrips() async {
     try {
-      final response = await supabase
+      final tripsCount = await supabase
           .from('trips')
-          .select('id')
-          .eq('status', 'completed')
-          .count(CountOption.exact);
+          .count(CountOption.exact)
+          .eq('status', 'completed');
+          
+      final taxiCount = await supabase
+          .from('taxi_requests')
+          .count(CountOption.exact)
+          .eq('status', 'completed');
+          
       setState(() {
-        totalCompletedTrips = response.count ?? 0;
+        totalCompletedTrips = tripsCount + taxiCount;
       });
     } catch (e) {
       debugPrint('Error fetching completed trips count: $e');
@@ -69,57 +74,92 @@ class _TripsHistoryScreenState extends State<TripsHistoryScreen> {
   Future<void> _fetchHistory() async {
     setState(() => isLoading = true);
     try {
-      var query = supabase.from('trips').select('*, profiles!driver_id(full_name)');
+      final String selectStr = (searchQuery.isNotEmpty && searchType == 'اسم الكابتن') 
+          ? '*, profiles!driver_id!inner(full_name)'
+          : '*, profiles!driver_id(full_name)';
 
-      // If searching by driver name, we must use !inner join to filter on the joined table
-      if (searchQuery.isNotEmpty && searchType == 'اسم الكابتن') {
-        query = supabase.from('trips').select('*, profiles!driver_id!inner(full_name)');
-      }
+      var tripsQuery = supabase.from('trips').select(selectStr);
+      var taxiQuery = supabase.from('taxi_requests').select(selectStr);
 
       // Status Filter
       if (selectedStatus != 'الكل') {
-        query = query.eq('status', selectedStatus);
+        tripsQuery = tripsQuery.eq('status', selectedStatus);
+        taxiQuery = taxiQuery.eq('status', selectedStatus);
       } else {
-        query = query.neq('status', 'ongoing'); // default exclusion for history
+        tripsQuery = tripsQuery.neq('status', 'ongoing'); 
+        taxiQuery = taxiQuery.neq('status', 'ongoing'); 
       }
 
-      // Type Filter
+      // Type Filter logic:
+      bool fetchTrips = true;
+      bool fetchTaxi = true;
+      
       if (selectedType != 'الكل') {
-        query = query.eq('trip_type', selectedType); // Using trip_type (fallback if it errors)
+        if (selectedType == 'taxi') {
+          fetchTrips = false;
+        } else {
+          fetchTaxi = false;
+          tripsQuery = tripsQuery.eq('trip_type', selectedType); 
+        }
       }
 
       // Date Filter
       if (selectedDateRange != null) {
-        query = query.gte('created_at', selectedDateRange!.start.toIso8601String());
-        query = query.lte('created_at', selectedDateRange!.end.add(const Duration(days: 1)).toIso8601String());
+        tripsQuery = tripsQuery.gte('created_at', selectedDateRange!.start.toIso8601String())
+                               .lte('created_at', selectedDateRange!.end.add(const Duration(days: 1)).toIso8601String());
+        taxiQuery = taxiQuery.gte('created_at', selectedDateRange!.start.toIso8601String())
+                             .lte('created_at', selectedDateRange!.end.add(const Duration(days: 1)).toIso8601String());
       }
 
-      // Search Query Filter
-      if (searchQuery.isNotEmpty) {
-        if (searchType == 'رقم الرحلة') {
-          // If searching by partial ID (UUID), PostgREST will throw an error with .eq
-          // We apply this filter locally below.
-        } else if (searchType == 'اسم الكابتن') {
-          query = query.ilike('profiles.full_name', '%$searchQuery%');
-        }
+      // Search Query Filter for Driver Name
+      if (searchQuery.isNotEmpty && searchType == 'اسم الكابتن') {
+        tripsQuery = tripsQuery.ilike('profiles.full_name', '%$searchQuery%');
+        taxiQuery = taxiQuery.ilike('profiles.full_name', '%$searchQuery%');
       }
 
       int fetchLimit = (searchQuery.isNotEmpty && searchType == 'رقم الرحلة') ? 1000 : 50;
-      final response = await query.order('created_at', ascending: false).limit(fetchLimit);
       
-      List<dynamic> fetchedTrips = response;
+      List<dynamic> combined = [];
       
+      if (fetchTrips) {
+        final tripsResponse = await tripsQuery.order('created_at', ascending: false).limit(fetchLimit);
+        for(var t in tripsResponse) {
+            final m = Map<String,dynamic>.from(t);
+            if (m['trip_type'] == null) m['trip_type'] = 'intercity';
+            combined.add(m);
+        }
+      }
+      
+      if (fetchTaxi) {
+        final taxiResponse = await taxiQuery.order('created_at', ascending: false).limit(fetchLimit);
+        for(var t in taxiResponse) {
+            final m = Map<String,dynamic>.from(t);
+            m['trip_type'] = 'taxi';
+            combined.add(m);
+        }
+      }
+
       // Local Filter for Trip ID
       if (searchQuery.isNotEmpty && searchType == 'رقم الرحلة') {
         final queryStr = searchQuery.toLowerCase();
-        fetchedTrips = fetchedTrips.where((trip) {
+        combined = combined.where((trip) {
           final id = trip['id']?.toString().toLowerCase() ?? '';
           return id.contains(queryStr);
         }).toList();
       }
 
+      combined.sort((a, b) {
+        final dateA = DateTime.tryParse(a['created_at'].toString()) ?? DateTime.now();
+        final dateB = DateTime.tryParse(b['created_at'].toString()) ?? DateTime.now();
+        return dateB.compareTo(dateA); // Descending
+      });
+
+      if (combined.length > fetchLimit) {
+        combined = combined.sublist(0, fetchLimit);
+      }
+
       setState(() {
-        trips = fetchedTrips;
+        trips = combined;
         isLoading = false;
       });
     } catch (e) {
