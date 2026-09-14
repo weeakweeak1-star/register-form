@@ -38,6 +38,15 @@ class _TripsHistoryScreenState extends State<TripsHistoryScreen> {
   final List<String> statuses = ['الكل', 'completed', 'cancelled', 'scheduled'];
   final List<String> tripTypes = ['الكل', 'taxi', 'pool', 'intercity'];
 
+  String _translateTripType(String type) {
+    switch (type) {
+      case 'taxi': return 'تكسي';
+      case 'pool': return 'مشاركة (Pool)';
+      case 'intercity': return 'بين المحافظات';
+      default: return type;
+    }
+  }
+
   int totalCompletedTrips = 0;
 
   String _formatDate(String? isoDate) {
@@ -529,7 +538,7 @@ class _TripsHistoryScreenState extends State<TripsHistoryScreen> {
                             border: OutlineInputBorder(borderRadius: BorderRadius.circular(8)),
                             contentPadding: const EdgeInsets.symmetric(horizontal: 12),
                           ),
-                          items: tripTypes.map((t) => DropdownMenuItem(value: t, child: Text(t))).toList(),
+                          items: tripTypes.map((t) => DropdownMenuItem(value: t, child: Text(t == 'الكل' ? 'الكل' : _translateTripType(t)))).toList(),
                           onChanged: (val) {
                             if (val != null) setState(() => selectedType = val);
                           },
@@ -606,7 +615,7 @@ class _TripsHistoryScreenState extends State<TripsHistoryScreen> {
                               itemBuilder: (context, index) {
                                 final trip = paginatedTrips[index];
                           final status = trip['status'] ?? 'unknown';
-                          final tripType = trip['trip_type'] ?? trip['type'] ?? 'غير محدد';
+                                final tripType = _translateTripType(trip['trip_type'] ?? trip['type'] ?? 'غير محدد');
                           return Card(
                             margin: const EdgeInsets.only(bottom: 12),
                             shape: RoundedRectangleBorder(borderRadius: BorderRadius.circular(10)),

@@ -30,7 +30,17 @@ class _LiveTripsScreenState extends State<LiveTripsScreen> {
 
   final TextEditingController _searchController = TextEditingController();
 
-  final List<String> searchTypes = ['رقم الرحلة', 'اسم الكابتن', 'اسم العميل'];
+  final List<String> tripTypes = ['الكل', 'taxi', 'pool', 'intercity'];
+
+  String _translateTripType(String type) {
+    switch (type) {
+      case 'taxi': return 'تكسي';
+      case 'pool': return 'مشاركة (Pool)';
+      case 'intercity': return 'بين المحافظات';
+      default: return type;
+    }
+  }
+
   // Active trip statuses
   final List<String> statuses = ['الكل', 'searching', 'accepted', 'arrived', 'ongoing'];
 
@@ -119,18 +129,20 @@ class _LiveTripsScreenState extends State<LiveTripsScreen> {
         return false;
       }
       
-      // 2. Search Filter
+      // 2. Trip Type Filter
+      if (searchType != 'الكل' && trip['trip_type'] != searchType) {
+        return false;
+      }
+      
+      // 3. Search Filter
       if (searchQuery.isNotEmpty) {
         final query = searchQuery.toLowerCase();
-        if (searchType == 'رقم الرحلة') {
-          final id = trip['id']?.toString().toLowerCase() ?? '';
-          if (!id.contains(query)) return false;
-        } else if (searchType == 'اسم الكابتن') {
-          final name = trip['driver']?['full_name']?.toString().toLowerCase() ?? '';
-          if (!name.contains(query)) return false;
-        } else if (searchType == 'اسم العميل') {
-          final name = trip['customer']?['full_name']?.toString().toLowerCase() ?? '';
-          if (!name.contains(query)) return false;
+        final id = trip['id']?.toString().toLowerCase() ?? '';
+        final driverName = trip['driver']?['full_name']?.toString().toLowerCase() ?? '';
+        final customerName = trip['customer']?['full_name']?.toString().toLowerCase() ?? '';
+        
+        if (!id.contains(query) && !driverName.contains(query) && !customerName.contains(query)) {
+          return false;
         }
       }
       return true;
@@ -141,7 +153,7 @@ class _LiveTripsScreenState extends State<LiveTripsScreen> {
     setState(() {
       searchQuery = '';
       _searchController.clear();
-      searchType = 'رقم الرحلة';
+      searchType = 'الكل';
       selectedStatus = 'الكل';
       sortAscending = false;
       currentPage = 0;
@@ -452,7 +464,7 @@ class _LiveTripsScreenState extends State<LiveTripsScreen> {
                         child: DropdownButtonHideUnderline(
                           child: DropdownButton<String>(
                             value: searchType,
-                            items: searchTypes.map((t) => DropdownMenuItem(value: t, child: Text(t))).toList(),
+                            items: tripTypes.map((t) => DropdownMenuItem(value: t, child: Text(t == 'الكل' ? 'الكل' : _translateTripType(t)))).toList(),
                             onChanged: (val) {
                               if (val != null) {
                                 setState(() {
@@ -555,7 +567,7 @@ class _LiveTripsScreenState extends State<LiveTripsScreen> {
                                 final paginatedList = filteredTrips.skip(currentPage * itemsPerPage).take(itemsPerPage).toList();
                                 final trip = paginatedList[index];
                                 final status = trip['status'] ?? 'unknown';
-                                final tripType = trip['trip_type'] ?? trip['type'] ?? 'غير محدد';
+                                final tripType = _translateTripType(trip['trip_type'] ?? trip['type'] ?? 'غير محدد');
                                 
                                 final customerName = trip['customer']?['full_name'] ?? 'متعدد (رحلة بين المحافظات)';
                                 final customerPhone = trip['customer']?['phone'];
