@@ -56,7 +56,7 @@ class _LiveTripsScreenState extends State<LiveTripsScreen> {
       setState(() => isLoading = true);
     }
     try {
-      final String selectTrips = '*, driver:profiles!driver_id(full_name, phone)';
+      final String selectTrips = '*, driver:profiles!driver_id(full_name, phone), bookings(id, seats_booked, status, passenger:profiles!passenger_id(full_name, phone))';
       final String selectTaxi = '*, driver:profiles!driver_id(full_name, phone), customer:profiles!passenger_id(full_name, phone)';
 
       final tripsResponse = await supabase
@@ -75,6 +75,7 @@ class _LiveTripsScreenState extends State<LiveTripsScreen> {
         final m = Map<String,dynamic>.from(t);
         m['trip_type'] = m['is_private'] == true ? 'intercity' : 'pool';
         m['customer'] = null; // Multiple bookings for scheduled trips
+        m['bookings_list'] = m['bookings'];
         m['mapped_origin'] = m['origin'];
         m['mapped_destination'] = m['destination'];
         m['mapped_price'] = m['price_per_seat'] ?? m['total_price'] ?? 0;
@@ -238,6 +239,13 @@ class _LiveTripsScreenState extends State<LiveTripsScreen> {
       case 'arrived': return 'الكابتن وصل';
       case 'ongoing': 
       case 'active': return 'الرحلة جارية';
+      case 'completed': return 'مكتملة';
+      case 'cancelled': return 'ملغاة';
+      case 'scheduled': return 'مجدولة';
+      case 'pending': return 'قيد الانتظار';
+      case 'confirmed': return 'مؤكدة';
+      case 'rejected': return 'مرفوضة';
+      case 'started': return 'بدأت';
       default: return status;
     }
   }
@@ -292,10 +300,37 @@ class _LiveTripsScreenState extends State<LiveTripsScreen> {
                   const Divider(),
                   _buildDetailRow('تاريخ الإنشاء', _formatDate(trip['created_at'] ?? '')),
                   const Divider(),
-                  _buildDetailRow('العميل', trip['customer']?['full_name'] ?? 'متعدد (رحلة بين المحافظات)'),
-                  if (trip['customer']?['phone'] != null) ...[
-                    const Divider(),
-                    _buildDetailRow('هاتف العميل', trip['customer']['phone']),
+                  if (tripType == 'taxi') ...[
+                    _buildDetailRow('العميل', trip['customer']?['full_name'] ?? 'متعدد (رحلة بين المحافظات)'),
+                    if (trip['customer']?['phone'] != null) ...[
+                      const Divider(),
+                      _buildDetailRow('هاتف العميل', trip['customer']['phone']),
+                    ],
+                  ] else ...[
+                    if (trip['bookings_list'] != null && (trip['bookings_list'] as List).isNotEmpty) ...[
+                      const Padding(
+                        padding: EdgeInsets.symmetric(vertical: 8.0),
+                        child: Text('قائمة العملاء (الحجوزات):', style: TextStyle(fontWeight: FontWeight.bold, color: Colors.indigo)),
+                      ),
+                      for (var b in trip['bookings_list']) ...[
+                        Padding(
+                          padding: const EdgeInsets.only(right: 16.0, bottom: 8.0),
+                          child: Column(
+                            crossAxisAlignment: CrossAxisAlignment.start,
+                            children: [
+                              Text('• العميل: ${b['passenger']?['full_name'] ?? 'غير متوفر'} - (مقاعد: ${b['seats_booked']}) - الحالة: ${_translateStatus(b['status'] ?? '')}', style: const TextStyle(fontWeight: FontWeight.bold, fontSize: 13)),
+                              if (b['passenger']?['phone'] != null)
+                                InkWell(
+                                  onTap: () => _launchPhone(b['passenger']['phone']),
+                                  child: Text('  هاتف: ${b['passenger']['phone']}', style: const TextStyle(color: Colors.blue, decoration: TextDecoration.underline, fontSize: 13)),
+                                ),
+                            ],
+                          ),
+                        ),
+                      ],
+                    ] else ...[
+                      _buildDetailRow('العملاء', 'لا يوجد حجوزات بعد'),
+                    ],
                   ],
                   const Divider(),
                   _buildDetailRow('الكابتن', trip['driver']?['full_name'] ?? 'غير متوفر'),

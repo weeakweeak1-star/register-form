@@ -1,5 +1,6 @@
 import 'package:flutter/material.dart';
 import 'package:supabase_flutter/supabase_flutter.dart';
+import 'package:url_launcher/url_launcher.dart';
 import '../../shared/components/pagination_controls.dart';
 
 class TripsHistoryScreen extends StatefulWidget {
@@ -93,7 +94,7 @@ class _TripsHistoryScreenState extends State<TripsHistoryScreen> {
       currentPage = 0;
     });
     try {
-      final String selectTrips = '*, driver:profiles!driver_id(full_name, phone)';
+      final String selectTrips = '*, driver:profiles!driver_id(full_name, phone), bookings(id, seats_booked, status, passenger:profiles!passenger_id(full_name, phone))';
       final String selectTaxi = '*, driver:profiles!driver_id(full_name, phone), customer:profiles!passenger_id(full_name, phone)';
 
       var tripsQuery = supabase.from('trips').select(selectTrips);
@@ -153,6 +154,7 @@ class _TripsHistoryScreenState extends State<TripsHistoryScreen> {
               }
               // Map common fields
               m['customer'] = null; // Trips have multiple bookings
+              m['bookings_list'] = m['bookings'];
               m['mapped_origin'] = m['origin'];
               m['mapped_destination'] = m['destination'];
               m['mapped_price'] = m['price_per_seat'] ?? m['total_price'] ?? 0;
@@ -242,7 +244,27 @@ class _TripsHistoryScreenState extends State<TripsHistoryScreen> {
       case 'completed': return 'مكتملة';
       case 'cancelled': return 'ملغاة';
       case 'scheduled': return 'مجدولة';
+      case 'pending': return 'قيد الانتظار';
+      case 'accepted': return 'مقبولة';
+      case 'confirmed': return 'مؤكدة';
+      case 'rejected': return 'مرفوضة';
+      case 'arrived': return 'وصل';
+      case 'started': return 'بدأت';
+      case 'ongoing': return 'جارية';
       default: return status;
+    }
+  }
+
+  Future<void> _launchPhone(String? phone) async {
+    if (phone == null || phone.isEmpty) {
+      ScaffoldMessenger.of(context).showSnackBar(const SnackBar(content: Text('رقم الهاتف غير متوفر')));
+      return;
+    }
+    final Uri launchUri = Uri(scheme: 'tel', path: phone);
+    if (await canLaunchUrl(launchUri)) {
+      await launchUrl(launchUri);
+    } else {
+      ScaffoldMessenger.of(context).showSnackBar(const SnackBar(content: Text('لا يمكن فتح تطبيق الاتصال')));
     }
   }
 
@@ -281,10 +303,37 @@ class _TripsHistoryScreenState extends State<TripsHistoryScreen> {
                   const Divider(),
                   _buildDetailRow('تاريخ الإنشاء', _formatDate(trip['created_at'])),
                   const Divider(),
-                  _buildDetailRow('العميل', trip['customer']?['full_name'] ?? 'متعدد (رحلة بين المحافظات)'),
-                  if (trip['customer']?['phone'] != null) ...[
-                    const Divider(),
-                    _buildDetailRow('هاتف العميل', trip['customer']['phone']),
+                  if (tripType == 'taxi') ...[
+                    _buildDetailRow('العميل', trip['customer']?['full_name'] ?? 'غير متوفر'),
+                    if (trip['customer']?['phone'] != null) ...[
+                      const Divider(),
+                      _buildDetailRow('هاتف العميل', trip['customer']['phone']),
+                    ],
+                  ] else ...[
+                    if (trip['bookings_list'] != null && (trip['bookings_list'] as List).isNotEmpty) ...[
+                      const Padding(
+                        padding: EdgeInsets.symmetric(vertical: 8.0),
+                        child: Text('قائمة العملاء (الحجوزات):', style: TextStyle(fontWeight: FontWeight.bold, color: Colors.indigo)),
+                      ),
+                      for (var b in trip['bookings_list']) ...[
+                        Padding(
+                          padding: const EdgeInsets.only(right: 16.0, bottom: 8.0),
+                          child: Column(
+                            crossAxisAlignment: CrossAxisAlignment.start,
+                            children: [
+                              Text('• العميل: ${b['passenger']?['full_name'] ?? 'غير متوفر'} - (مقاعد: ${b['seats_booked']}) - الحالة: ${_translateStatus(b['status'] ?? '')}', style: const TextStyle(fontWeight: FontWeight.bold, fontSize: 13)),
+                              if (b['passenger']?['phone'] != null)
+                                InkWell(
+                                  onTap: () => _launchPhone(b['passenger']['phone']),
+                                  child: Text('  هاتف: ${b['passenger']['phone']}', style: const TextStyle(color: Colors.blue, decoration: TextDecoration.underline, fontSize: 13)),
+                                ),
+                            ],
+                          ),
+                        ),
+                      ],
+                    ] else ...[
+                      _buildDetailRow('العملاء', 'لا يوجد حجوزات بعد'),
+                    ],
                   ],
                   const Divider(),
                   _buildDetailRow('الكابتن', trip['driver']?['full_name'] ?? 'غير متوفر'),
