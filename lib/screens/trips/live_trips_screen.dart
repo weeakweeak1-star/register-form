@@ -22,7 +22,6 @@ class _LiveTripsScreenState extends State<LiveTripsScreen> {
   String searchQuery = '';
   String searchType = 'رقم الرحلة'; // 'رقم الرحلة', 'اسم الكابتن', 'اسم العميل'
   String selectedStatus = 'الكل';
-  String selectedStatus = 'الكل';
   bool sortAscending = false;
 
   // Pagination State
@@ -57,16 +56,49 @@ class _LiveTripsScreenState extends State<LiveTripsScreen> {
       setState(() => isLoading = true);
     }
     try {
-      // Fetch trips with status in our active list
-      final response = await supabase
+      final String selectTrips = '*, driver:profiles!driver_id(full_name, phone)';
+      final String selectTaxi = '*, driver:profiles!driver_id(full_name, phone), customer:profiles!passenger_id(full_name, phone)';
+
+      final tripsResponse = await supabase
           .from('trips')
-          .select('*, driver:profiles!driver_id(full_name, phone), customer:profiles!user_id(full_name, phone)')
-          .inFilter('status', ['searching', 'accepted', 'arrived', 'ongoing', 'active'])
-          .order('created_at', ascending: sortAscending);
+          .select(selectTrips)
+          .inFilter('status', ['searching', 'accepted', 'arrived', 'ongoing', 'active']);
+          
+      final taxiResponse = await supabase
+          .from('taxi_requests')
+          .select(selectTaxi)
+          .inFilter('status', ['searching', 'accepted', 'arrived', 'ongoing', 'active']);
+      
+      List<dynamic> combined = [];
+      
+      for(var t in tripsResponse) {
+        final m = Map<String,dynamic>.from(t);
+        m['trip_type'] = m['is_private'] == true ? 'intercity' : 'pool';
+        m['customer'] = null; // Multiple bookings for scheduled trips
+        m['mapped_origin'] = m['origin'];
+        m['mapped_destination'] = m['destination'];
+        m['mapped_price'] = m['price_per_seat'] ?? m['total_price'] ?? 0;
+        combined.add(m);
+      }
+      
+      for(var t in taxiResponse) {
+        final m = Map<String,dynamic>.from(t);
+        m['trip_type'] = 'taxi';
+        m['mapped_origin'] = m['pickup_address'];
+        m['mapped_destination'] = m['dropoff_address'];
+        m['mapped_price'] = m['price'] ?? 0;
+        combined.add(m);
+      }
+
+      combined.sort((a, b) {
+        final dateA = DateTime.tryParse(a['created_at'].toString()) ?? DateTime.now();
+        final dateB = DateTime.tryParse(b['created_at'].toString()) ?? DateTime.now();
+        return sortAscending ? dateA.compareTo(dateB) : dateB.compareTo(dateA);
+      });
       
       if (mounted) {
         setState(() {
-          allLiveTrips = response;
+          allLiveTrips = combined;
           _applyFilters();
           if (!isPolling) isLoading = false;
         });
@@ -260,15 +292,23 @@ class _LiveTripsScreenState extends State<LiveTripsScreen> {
                   const Divider(),
                   _buildDetailRow('تاريخ الإنشاء', _formatDate(trip['created_at'] ?? '')),
                   const Divider(),
-                  _buildDetailRow('العميل', trip['customer']?['full_name'] ?? 'غير متوفر'),
+                  _buildDetailRow('العميل', trip['customer']?['full_name'] ?? 'متعدد (رحلة بين المحافظات)'),
+                  if (trip['customer']?['phone'] != null) ...[
+                    const Divider(),
+                    _buildDetailRow('هاتف العميل', trip['customer']['phone']),
+                  ],
                   const Divider(),
                   _buildDetailRow('الكابتن', trip['driver']?['full_name'] ?? 'غير متوفر'),
+                  if (trip['driver']?['phone'] != null) ...[
+                    const Divider(),
+                    _buildDetailRow('هاتف الكابتن', trip['driver']['phone']),
+                  ],
                   const Divider(),
-                  _buildDetailRow('نقطة الانطلاق', trip['origin'] ?? 'غير متوفر'),
+                  _buildDetailRow('نقطة الانطلاق', trip['mapped_origin'] ?? 'غير متوفر'),
                   const Divider(),
-                  _buildDetailRow('نقطة الوصول', trip['destination'] ?? 'غير متوفر'),
+                  _buildDetailRow('نقطة الوصول', trip['mapped_destination'] ?? 'غير متوفر'),
                   const Divider(),
-                  _buildDetailRow('السعر', '${trip['price_per_seat'] ?? trip['total_price'] ?? 0} د.ع'),
+                  _buildDetailRow('السعر', '${trip['mapped_price']} د.ع'),
                   if (trip['seats'] != null) ...[
                     const Divider(),
                     _buildDetailRow('عدد المقاعد', trip['seats'].toString()),
@@ -482,7 +522,7 @@ class _LiveTripsScreenState extends State<LiveTripsScreen> {
                                 final status = trip['status'] ?? 'unknown';
                                 final tripType = trip['trip_type'] ?? trip['type'] ?? 'غير محدد';
                                 
-                                final customerName = trip['customer']?['full_name'] ?? 'عميل غير مسجل';
+                                final customerName = trip['customer']?['full_name'] ?? 'متعدد (رحلة بين المحافظات)';
                                 final customerPhone = trip['customer']?['phone'];
                                 
                                 final driverName = trip['driver']?['full_name'] ?? 'جاري البحث...';
@@ -611,7 +651,7 @@ class _LiveTripsScreenState extends State<LiveTripsScreen> {
                                                 children: [
                                                   const Icon(Icons.my_location, color: Colors.green, size: 16),
                                                   const SizedBox(width: 8),
-                                                  Expanded(child: Text(trip['origin'] ?? 'غير محدد', maxLines: 1, overflow: TextOverflow.ellipsis)),
+                                                  Expanded(child: Text(trip['mapped_origin'] ?? 'غير محدد', maxLines: 1, overflow: TextOverflow.ellipsis)),
                                                 ],
                                               ),
                                               const Padding(
@@ -622,7 +662,7 @@ class _LiveTripsScreenState extends State<LiveTripsScreen> {
                                                 children: [
                                                   const Icon(Icons.location_on, color: Colors.red, size: 16),
                                                   const SizedBox(width: 8),
-                                                  Expanded(child: Text(trip['destination'] ?? 'غير محدد', maxLines: 1, overflow: TextOverflow.ellipsis)),
+                                                  Expanded(child: Text(trip['mapped_destination'] ?? 'غير محدد', maxLines: 1, overflow: TextOverflow.ellipsis)),
                                                 ],
                                               ),
                                             ],

@@ -93,12 +93,11 @@ class _TripsHistoryScreenState extends State<TripsHistoryScreen> {
       currentPage = 0;
     });
     try {
-      final String selectStr = (searchQuery.isNotEmpty && searchType == 'اسم الكابتن') 
-          ? '*, profiles!driver_id!inner(full_name)'
-          : '*, profiles!driver_id(full_name)';
+      final String selectTrips = '*, driver:profiles!driver_id(full_name, phone)';
+      final String selectTaxi = '*, driver:profiles!driver_id(full_name, phone), customer:profiles!passenger_id(full_name, phone)';
 
-      var tripsQuery = supabase.from('trips').select(selectStr);
-      var taxiQuery = supabase.from('taxi_requests').select(selectStr);
+      var tripsQuery = supabase.from('trips').select(selectTrips);
+      var taxiQuery = supabase.from('taxi_requests').select(selectTaxi);
 
       // Status Filter
       if (selectedStatus != 'الكل') {
@@ -117,8 +116,6 @@ class _TripsHistoryScreenState extends State<TripsHistoryScreen> {
           fetchTrips = false;
         } else {
           fetchTaxi = false;
-          // trips table does not have 'trip_type' column.
-          // pool = is_private: false, intercity = is_private: true
           if (selectedType == 'pool') {
             tripsQuery = tripsQuery.eq('is_private', false);
           } else if (selectedType == 'intercity') {
@@ -137,11 +134,12 @@ class _TripsHistoryScreenState extends State<TripsHistoryScreen> {
 
       // Search Query Filter for Driver Name
       if (searchQuery.isNotEmpty && searchType == 'اسم الكابتن') {
-        tripsQuery = tripsQuery.ilike('profiles.full_name', '%$searchQuery%');
-        taxiQuery = taxiQuery.ilike('profiles.full_name', '%$searchQuery%');
+        // PostgREST doesn't support ilike on foreign tables easily in the same query without inner joins.
+        // We will fetch more and filter locally for simplicity if needed, or use inner join.
+        // For now, we fetch and let local filter handle it to avoid complex joins.
       }
 
-      int fetchLimit = (searchQuery.isNotEmpty && searchType == 'رقم الرحلة') ? 1000 : 50;
+      int fetchLimit = (searchQuery.isNotEmpty) ? 1000 : 100;
       
       List<dynamic> combined = [];
       
@@ -153,6 +151,11 @@ class _TripsHistoryScreenState extends State<TripsHistoryScreen> {
               if (m['trip_type'] == null) {
                   m['trip_type'] = (m['is_private'] == true) ? 'intercity' : 'pool';
               }
+              // Map common fields
+              m['customer'] = null; // Trips have multiple bookings
+              m['mapped_origin'] = m['origin'];
+              m['mapped_destination'] = m['destination'];
+              m['mapped_price'] = m['price_per_seat'] ?? m['total_price'] ?? 0;
               combined.add(m);
           }
         } catch (e) {
@@ -166,6 +169,10 @@ class _TripsHistoryScreenState extends State<TripsHistoryScreen> {
           for(var t in taxiResponse) {
               final m = Map<String,dynamic>.from(t);
               m['trip_type'] = 'taxi';
+              // Map common fields
+              m['mapped_origin'] = m['pickup_address'];
+              m['mapped_destination'] = m['dropoff_address'];
+              m['mapped_price'] = m['price'] ?? 0;
               combined.add(m);
           }
         } catch (e) {
@@ -173,12 +180,16 @@ class _TripsHistoryScreenState extends State<TripsHistoryScreen> {
         }
       }
 
-      // Local Filter for Trip ID
-      if (searchQuery.isNotEmpty && searchType == 'رقم الرحلة') {
+      // Local Filters
+      if (searchQuery.isNotEmpty) {
         final queryStr = searchQuery.toLowerCase();
         combined = combined.where((trip) {
-          final id = trip['id']?.toString().toLowerCase() ?? '';
-          return id.contains(queryStr);
+          if (searchType == 'رقم الرحلة') {
+            return (trip['id']?.toString().toLowerCase() ?? '').contains(queryStr);
+          } else if (searchType == 'اسم الكابتن') {
+            return (trip['driver']?['full_name']?.toString().toLowerCase() ?? '').contains(queryStr);
+          }
+          return true;
         }).toList();
       }
 
@@ -270,13 +281,23 @@ class _TripsHistoryScreenState extends State<TripsHistoryScreen> {
                   const Divider(),
                   _buildDetailRow('تاريخ الإنشاء', _formatDate(trip['created_at'])),
                   const Divider(),
-                  _buildDetailRow('اسم الكابتن', trip['profiles']?['full_name'] ?? 'غير متوفر'),
+                  _buildDetailRow('العميل', trip['customer']?['full_name'] ?? 'متعدد (رحلة بين المحافظات)'),
+                  if (trip['customer']?['phone'] != null) ...[
+                    const Divider(),
+                    _buildDetailRow('هاتف العميل', trip['customer']['phone']),
+                  ],
                   const Divider(),
-                  _buildDetailRow('نقطة الانطلاق', trip['origin'] ?? 'غير متوفر'),
+                  _buildDetailRow('الكابتن', trip['driver']?['full_name'] ?? 'غير متوفر'),
+                  if (trip['driver']?['phone'] != null) ...[
+                    const Divider(),
+                    _buildDetailRow('هاتف الكابتن', trip['driver']['phone']),
+                  ],
                   const Divider(),
-                  _buildDetailRow('نقطة الوصول', trip['destination'] ?? 'غير متوفر'),
+                  _buildDetailRow('نقطة الانطلاق', trip['mapped_origin'] ?? 'غير متوفر'),
                   const Divider(),
-                  _buildDetailRow('السعر', '${trip['price_per_seat'] ?? trip['total_price'] ?? 0} د.ع'),
+                  _buildDetailRow('نقطة الوصول', trip['mapped_destination'] ?? 'غير متوفر'),
+                  const Divider(),
+                  _buildDetailRow('السعر', '${trip['mapped_price']} د.ع'),
                   if (trip['seats'] != null) ...[
                     const Divider(),
                     _buildDetailRow('عدد المقاعد', trip['seats'].toString()),
@@ -571,7 +592,7 @@ class _TripsHistoryScreenState extends State<TripsHistoryScreen> {
                                             mainAxisAlignment: MainAxisAlignment.spaceBetween,
                                             children: [
                                               Text(
-                                                'الكابتن: ${trip['profiles']?['full_name'] ?? 'غير معروف'}',
+                                                'الكابتن: ${trip['driver']?['full_name'] ?? 'غير معروف'}',
                                                 style: const TextStyle(fontWeight: FontWeight.bold, fontSize: 16),
                                               ),
                                               Container(
@@ -608,7 +629,7 @@ class _TripsHistoryScreenState extends State<TripsHistoryScreen> {
                                               const SizedBox(width: 16),
                                               const Icon(Icons.attach_money, size: 16, color: Colors.grey),
                                               const SizedBox(width: 4),
-                                              Text('السعر: ${trip['price_per_seat'] ?? trip['total_price'] ?? 0} د.ع', style: const TextStyle(color: Colors.grey, fontWeight: FontWeight.bold)),
+                                              Text('السعر: ${trip['mapped_price']} د.ع', style: const TextStyle(color: Colors.grey, fontWeight: FontWeight.bold)),
                                             ],
                                           ),
                                         ],
