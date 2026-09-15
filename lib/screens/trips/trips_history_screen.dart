@@ -401,8 +401,33 @@ class _TripsHistoryScreenState extends State<TripsHistoryScreen> {
       padding: const EdgeInsets.all(16.0),
       child: Column(
         crossAxisAlignment: CrossAxisAlignment.start,
-        children: [
-          const Text('سجل الرحلات المكتملة والملغاة', style: TextStyle(fontSize: 24, fontWeight: FontWeight.bold)),
+          Row(
+            mainAxisAlignment: MainAxisAlignment.spaceBetween,
+            children: [
+              const Text('سجل الرحلات المكتملة والملغاة', style: TextStyle(fontSize: 24, fontWeight: FontWeight.bold)),
+              ElevatedButton(
+                onPressed: () async {
+                  try {
+                    final res = await supabase.from('bookings').select().limit(5);
+                    if (mounted) {
+                      showDialog(context: context, builder: (_) => AlertDialog(
+                        title: const Text('Debug Bookings'),
+                        content: Text('Count: ${res.length}\nData: $res'),
+                      ));
+                    }
+                  } catch (e) {
+                    if (mounted) {
+                      showDialog(context: context, builder: (_) => AlertDialog(
+                        title: const Text('Debug Error'),
+                        content: Text(e.toString()),
+                      ));
+                    }
+                  }
+                },
+                child: const Text('فحص الخلل (Debug)'),
+              ),
+            ],
+          ),
           const SizedBox(height: 16),
 
           // --- Top Summary Card ---
