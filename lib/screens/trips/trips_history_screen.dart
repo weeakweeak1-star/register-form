@@ -103,40 +103,40 @@ class _TripsHistoryScreenState extends State<TripsHistoryScreen> {
       currentPage = 0;
     });
     try {
-      final String selectTrips = '*, driver:profiles!driver_id(full_name, phone), bookings(id, seats_booked, status, passenger:profiles!passenger_id(full_name, phone))';
+      final String selectBookings = '*, passenger:profiles!passenger_id(full_name, phone), trip:trips!inner(*, driver:profiles!driver_id(full_name, phone))';
       final String selectTaxi = '*, driver:profiles!driver_id(full_name, phone), customer:profiles!passenger_id(full_name, phone)';
 
-      var tripsQuery = supabase.from('trips').select(selectTrips);
+      var bookingsQuery = supabase.from('bookings').select(selectBookings);
       var taxiQuery = supabase.from('taxi_requests').select(selectTaxi);
 
       // Status Filter
       if (selectedStatus != 'الكل') {
-        tripsQuery = tripsQuery.eq('status', selectedStatus);
+        bookingsQuery = bookingsQuery.eq('status', selectedStatus);
         taxiQuery = taxiQuery.eq('status', selectedStatus);
       } else {
-        tripsQuery = tripsQuery.neq('status', 'ongoing'); 
+        bookingsQuery = bookingsQuery.neq('status', 'ongoing'); 
         taxiQuery = taxiQuery.neq('status', 'ongoing'); 
       }
 
-      bool fetchTrips = true;
+      bool fetchBookings = true;
       bool fetchTaxi = true;
       
       if (selectedType != 'الكل') {
         if (selectedType == 'taxi') {
-          fetchTrips = false;
+          fetchBookings = false;
         } else {
           fetchTaxi = false;
           if (selectedType == 'pool') {
-            tripsQuery = tripsQuery.eq('is_private', false);
+            bookingsQuery = bookingsQuery.eq('trip.is_private', false);
           } else if (selectedType == 'intercity') {
-            tripsQuery = tripsQuery.eq('is_private', true);
+            bookingsQuery = bookingsQuery.eq('trip.is_private', true);
           }
         }
       }
 
       // Date Filter
       if (selectedDateRange != null) {
-        tripsQuery = tripsQuery.gte('created_at', selectedDateRange!.start.toIso8601String())
+        bookingsQuery = bookingsQuery.gte('created_at', selectedDateRange!.start.toIso8601String())
                                .lte('created_at', selectedDateRange!.end.add(const Duration(days: 1)).toIso8601String());
         taxiQuery = taxiQuery.gte('created_at', selectedDateRange!.start.toIso8601String())
                              .lte('created_at', selectedDateRange!.end.add(const Duration(days: 1)).toIso8601String());
@@ -153,24 +153,31 @@ class _TripsHistoryScreenState extends State<TripsHistoryScreen> {
       
       List<dynamic> combined = [];
       
-      if (fetchTrips) {
+      if (fetchBookings) {
         try {
-          final tripsResponse = await tripsQuery.order('created_at', ascending: false).limit(fetchLimit);
-          for(var t in tripsResponse) {
-              final m = Map<String,dynamic>.from(t);
-              if (m['trip_type'] == null) {
-                  m['trip_type'] = (m['is_private'] == true) ? 'intercity' : 'pool';
-              }
-              // Map common fields
-              m['customer'] = null; // Trips have multiple bookings
-              m['bookings_list'] = m['bookings'];
-              m['mapped_origin'] = m['origin'];
-              m['mapped_destination'] = m['destination'];
-              m['mapped_price'] = m['price_per_seat'] ?? m['total_price'] ?? 0;
+          final bookingsResponse = await bookingsQuery.order('created_at', ascending: false).limit(fetchLimit);
+          for(var b in bookingsResponse) {
+              final m = Map<String,dynamic>.from(b);
+              final tripData = m['trip'] ?? {};
+              
+              m['trip_type'] = (tripData['is_private'] == true) ? 'intercity' : 'pool';
+              m['driver'] = tripData['driver'];
+              m['customer'] = m['passenger'];
+              
+              m['booking_status'] = m['status'];
+              m['trip_status'] = tripData['status'];
+              m['status'] = m['status']; 
+              m['trip_id'] = tripData['id'];
+              m['mapped_origin'] = tripData['origin'];
+              m['mapped_destination'] = tripData['destination'];
+              m['mapped_price'] = tripData['price_per_seat'] ?? tripData['total_price'] ?? 0;
+              m['is_booking'] = true;
+              
               combined.add(m);
           }
         } catch (e) {
-          debugPrint('Error fetching trips: $e');
+          debugPrint('Error fetching bookings: $e');
+          if (mounted) ScaffoldMessenger.of(context).showSnackBar(SnackBar(content: Text('Error fetching bookings: $e')));
         }
       }
       
@@ -304,45 +311,29 @@ class _TripsHistoryScreenState extends State<TripsHistoryScreen> {
                 mainAxisSize: MainAxisSize.min,
                 crossAxisAlignment: CrossAxisAlignment.start,
                 children: [
-                  _buildDetailRow('معرف الرحلة (ID)', trip['id']?.toString() ?? '-'),
+                  _buildDetailRow('معرف الطلب (ID)', trip['id']?.toString() ?? '-'),
+                  if (trip['is_booking'] == true)
+                    _buildDetailRow('معرف الرحلة الأصلية', trip['trip_id']?.toString() ?? '-'),
                   const Divider(),
-                  _buildDetailRow('نوع الرحلة', tripType),
+                  _buildDetailRow('نوع الطلب', tripType),
                   const Divider(),
-                  _buildDetailRow('حالة الرحلة', _translateStatus(status), valueColor: _getStatusColor(status)),
+                  if (trip['is_booking'] == true) ...[
+                    _buildDetailRow('حالة الحجز (العميل)', _translateStatus(trip['booking_status'] ?? 'unknown'), valueColor: _getStatusColor(trip['booking_status'] ?? 'unknown')),
+                    _buildDetailRow('حالة الرحلة (الكابتن)', _translateStatus(trip['trip_status'] ?? 'unknown'), valueColor: _getStatusColor(trip['trip_status'] ?? 'unknown')),
+                  ] else ...[
+                    _buildDetailRow('حالة الطلب', _translateStatus(status), valueColor: _getStatusColor(status)),
+                  ],
                   const Divider(),
                   _buildDetailRow('تاريخ الإنشاء', _formatDate(trip['created_at'])),
                   const Divider(),
-                  if (tripType == 'taxi') ...[
-                    _buildDetailRow('العميل', trip['customer']?['full_name'] ?? 'غير متوفر'),
-                    if (trip['customer']?['phone'] != null) ...[
-                      const Divider(),
-                      _buildDetailRow('هاتف العميل', trip['customer']['phone']),
-                    ],
-                  ] else ...[
-                    if (trip['bookings_list'] != null && (trip['bookings_list'] as List).isNotEmpty) ...[
-                      const Padding(
-                        padding: EdgeInsets.symmetric(vertical: 8.0),
-                        child: Text('قائمة العملاء (الحجوزات):', style: TextStyle(fontWeight: FontWeight.bold, color: Colors.indigo)),
-                      ),
-                      for (var b in trip['bookings_list']) ...[
-                        Padding(
-                          padding: const EdgeInsets.only(right: 16.0, bottom: 8.0),
-                          child: Column(
-                            crossAxisAlignment: CrossAxisAlignment.start,
-                            children: [
-                              Text('• العميل: ${b['passenger']?['full_name'] ?? 'غير متوفر'} - (مقاعد: ${b['seats_booked']}) - الحالة: ${_translateStatus(b['status'] ?? '')}', style: const TextStyle(fontWeight: FontWeight.bold, fontSize: 13)),
-                              if (b['passenger']?['phone'] != null)
-                                InkWell(
-                                  onTap: () => _launchPhone(b['passenger']['phone']),
-                                  child: Text('  هاتف: ${b['passenger']['phone']}', style: const TextStyle(color: Colors.blue, decoration: TextDecoration.underline, fontSize: 13)),
-                                ),
-                            ],
-                          ),
-                        ),
-                      ],
-                    ] else ...[
-                      _buildDetailRow('العملاء', 'لا يوجد حجوزات بعد'),
-                    ],
+                  _buildDetailRow('العميل', trip['customer']?['full_name'] ?? 'غير متوفر'),
+                  if (trip['customer']?['phone'] != null) ...[
+                    const Divider(),
+                    _buildDetailRow('هاتف العميل', trip['customer']['phone']),
+                  ],
+                  if (trip['is_booking'] == true) ...[
+                     const Divider(),
+                    _buildDetailRow('عدد المقاعد المحجوزة', trip['seats_booked']?.toString() ?? '1'),
                   ],
                   const Divider(),
                   _buildDetailRow('الكابتن', trip['driver']?['full_name'] ?? 'غير متوفر'),
@@ -653,16 +644,35 @@ class _TripsHistoryScreenState extends State<TripsHistoryScreen> {
                                                 'الكابتن: ${trip['driver']?['full_name'] ?? 'غير معروف'}',
                                                 style: const TextStyle(fontWeight: FontWeight.bold, fontSize: 16),
                                               ),
-                                              Container(
-                                                padding: const EdgeInsets.symmetric(horizontal: 8, vertical: 4),
-                                                decoration: BoxDecoration(
-                                                  color: _getStatusColor(status),
-                                                  borderRadius: BorderRadius.circular(12),
-                                                ),
-                                                child: Text(
-                                                  _translateStatus(status),
-                                                  style: const TextStyle(color: Colors.white, fontSize: 12, fontWeight: FontWeight.bold),
-                                                ),
+                                              Row(
+                                                children: [
+                                                  if (trip['is_booking'] == true) ...[
+                                                    Container(
+                                                      margin: const EdgeInsets.only(left: 4),
+                                                      padding: const EdgeInsets.symmetric(horizontal: 8, vertical: 4),
+                                                      decoration: BoxDecoration(
+                                                        color: _getStatusColor(trip['trip_status'] ?? '').withOpacity(0.2),
+                                                        borderRadius: BorderRadius.circular(12),
+                                                        border: Border.all(color: _getStatusColor(trip['trip_status'] ?? '')),
+                                                      ),
+                                                      child: Text(
+                                                        'الرحلة: ${_translateStatus(trip['trip_status'] ?? '')}',
+                                                        style: TextStyle(color: _getStatusColor(trip['trip_status'] ?? ''), fontSize: 10, fontWeight: FontWeight.bold),
+                                                      ),
+                                                    ),
+                                                  ],
+                                                  Container(
+                                                    padding: const EdgeInsets.symmetric(horizontal: 8, vertical: 4),
+                                                    decoration: BoxDecoration(
+                                                      color: _getStatusColor(status),
+                                                      borderRadius: BorderRadius.circular(12),
+                                                    ),
+                                                    child: Text(
+                                                      trip['is_booking'] == true ? 'الحجز: ${_translateStatus(status)}' : _translateStatus(status),
+                                                      style: const TextStyle(color: Colors.white, fontSize: 12, fontWeight: FontWeight.bold),
+                                                    ),
+                                                  ),
+                                                ],
                                               ),
                                             ],
                                           ),

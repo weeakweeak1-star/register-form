@@ -66,13 +66,13 @@ class _LiveTripsScreenState extends State<LiveTripsScreen> {
       setState(() => isLoading = true);
     }
     try {
-      final String selectTrips = '*, driver:profiles!driver_id(full_name, phone), bookings(id, seats_booked, status, passenger:profiles!passenger_id(full_name, phone))';
+      final String selectBookings = '*, passenger:profiles!passenger_id(full_name, phone), trip:trips!inner(*, driver:profiles!driver_id(full_name, phone))';
       final String selectTaxi = '*, driver:profiles!driver_id(full_name, phone), customer:profiles!passenger_id(full_name, phone)';
 
-      final tripsResponse = await supabase
-          .from('trips')
-          .select(selectTrips)
-          .inFilter('status', ['searching', 'accepted', 'arrived', 'ongoing', 'active']);
+      final bookingsResponse = await supabase
+          .from('bookings')
+          .select(selectBookings)
+          .inFilter('status', ['pending', 'confirmed', 'active', 'ongoing']);
           
       final taxiResponse = await supabase
           .from('taxi_requests')
@@ -81,14 +81,22 @@ class _LiveTripsScreenState extends State<LiveTripsScreen> {
       
       List<dynamic> combined = [];
       
-      for(var t in tripsResponse) {
-        final m = Map<String,dynamic>.from(t);
-        m['trip_type'] = m['is_private'] == true ? 'intercity' : 'pool';
-        m['customer'] = null; // Multiple bookings for scheduled trips
-        m['bookings_list'] = m['bookings'];
-        m['mapped_origin'] = m['origin'];
-        m['mapped_destination'] = m['destination'];
-        m['mapped_price'] = m['price_per_seat'] ?? m['total_price'] ?? 0;
+      for(var b in bookingsResponse) {
+        final m = Map<String,dynamic>.from(b);
+        final tripData = m['trip'] ?? {};
+        m['trip_type'] = tripData['is_private'] == true ? 'intercity' : 'pool';
+        m['customer'] = m['passenger'];
+        m['driver'] = tripData['driver'];
+        
+        m['booking_status'] = m['status'];
+        m['trip_status'] = tripData['status'];
+        m['status'] = m['status'];
+        m['trip_id'] = tripData['id'];
+        m['mapped_origin'] = tripData['origin'];
+        m['mapped_destination'] = tripData['destination'];
+        m['mapped_price'] = tripData['price_per_seat'] ?? tripData['total_price'] ?? 0;
+        m['is_booking'] = true;
+        
         combined.add(m);
       }
       
@@ -117,6 +125,7 @@ class _LiveTripsScreenState extends State<LiveTripsScreen> {
     } catch (e) {
       debugPrint('Error fetching live trips: $e');
       if (mounted && !isPolling) {
+        ScaffoldMessenger.of(context).showSnackBar(SnackBar(content: Text('Error: $e')));
         setState(() => isLoading = false);
       }
     }
@@ -304,45 +313,29 @@ class _LiveTripsScreenState extends State<LiveTripsScreen> {
                 mainAxisSize: MainAxisSize.min,
                 crossAxisAlignment: CrossAxisAlignment.start,
                 children: [
-                  _buildDetailRow('معرف الرحلة (ID)', trip['id']?.toString() ?? '-'),
+                  _buildDetailRow('معرف الطلب (ID)', trip['id']?.toString() ?? '-'),
+                  if (trip['is_booking'] == true)
+                    _buildDetailRow('معرف الرحلة الأصلية', trip['trip_id']?.toString() ?? '-'),
                   const Divider(),
-                  _buildDetailRow('نوع الرحلة', tripType),
+                  _buildDetailRow('نوع الطلب', tripType),
                   const Divider(),
-                  _buildDetailRow('حالة الرحلة', _translateStatus(status), valueColor: _getStatusColor(status)),
+                  if (trip['is_booking'] == true) ...[
+                    _buildDetailRow('حالة الحجز (العميل)', _translateStatus(trip['booking_status'] ?? 'unknown'), valueColor: _getStatusColor(trip['booking_status'] ?? 'unknown')),
+                    _buildDetailRow('حالة الرحلة (الكابتن)', _translateStatus(trip['trip_status'] ?? 'unknown'), valueColor: _getStatusColor(trip['trip_status'] ?? 'unknown')),
+                  ] else ...[
+                    _buildDetailRow('حالة الطلب', _translateStatus(status), valueColor: _getStatusColor(status)),
+                  ],
                   const Divider(),
                   _buildDetailRow('تاريخ الإنشاء', _formatDate(trip['created_at'] ?? '')),
                   const Divider(),
-                  if (tripType == 'taxi') ...[
-                    _buildDetailRow('العميل', trip['customer']?['full_name'] ?? 'متعدد (رحلة بين المحافظات)'),
-                    if (trip['customer']?['phone'] != null) ...[
-                      const Divider(),
-                      _buildDetailRow('هاتف العميل', trip['customer']['phone']),
-                    ],
-                  ] else ...[
-                    if (trip['bookings_list'] != null && (trip['bookings_list'] as List).isNotEmpty) ...[
-                      const Padding(
-                        padding: EdgeInsets.symmetric(vertical: 8.0),
-                        child: Text('قائمة العملاء (الحجوزات):', style: TextStyle(fontWeight: FontWeight.bold, color: Colors.indigo)),
-                      ),
-                      for (var b in trip['bookings_list']) ...[
-                        Padding(
-                          padding: const EdgeInsets.only(right: 16.0, bottom: 8.0),
-                          child: Column(
-                            crossAxisAlignment: CrossAxisAlignment.start,
-                            children: [
-                              Text('• العميل: ${b['passenger']?['full_name'] ?? 'غير متوفر'} - (مقاعد: ${b['seats_booked']}) - الحالة: ${_translateStatus(b['status'] ?? '')}', style: const TextStyle(fontWeight: FontWeight.bold, fontSize: 13)),
-                              if (b['passenger']?['phone'] != null)
-                                InkWell(
-                                  onTap: () => _launchPhone(b['passenger']['phone']),
-                                  child: Text('  هاتف: ${b['passenger']['phone']}', style: const TextStyle(color: Colors.blue, decoration: TextDecoration.underline, fontSize: 13)),
-                                ),
-                            ],
-                          ),
-                        ),
-                      ],
-                    ] else ...[
-                      _buildDetailRow('العملاء', 'لا يوجد حجوزات بعد'),
-                    ],
+                  _buildDetailRow('العميل', trip['customer']?['full_name'] ?? 'غير متوفر'),
+                  if (trip['customer']?['phone'] != null) ...[
+                    const Divider(),
+                    _buildDetailRow('هاتف العميل', trip['customer']['phone']),
+                  ],
+                  if (trip['is_booking'] == true) ...[
+                     const Divider(),
+                    _buildDetailRow('عدد المقاعد المحجوزة', trip['seats_booked']?.toString() ?? '1'),
                   ],
                   const Divider(),
                   _buildDetailRow('الكابتن', trip['driver']?['full_name'] ?? 'غير متوفر'),
@@ -593,6 +586,21 @@ class _LiveTripsScreenState extends State<LiveTripsScreen> {
                                           children: [
                                             Row(
                                               children: [
+                                                if (trip['is_booking'] == true) ...[
+                                                  Container(
+                                                    margin: const EdgeInsets.only(left: 8),
+                                                    padding: const EdgeInsets.symmetric(horizontal: 12, vertical: 6),
+                                                    decoration: BoxDecoration(
+                                                      color: _getStatusColor(trip['trip_status'] ?? '').withOpacity(0.2),
+                                                      borderRadius: BorderRadius.circular(20),
+                                                      border: Border.all(color: _getStatusColor(trip['trip_status'] ?? '')),
+                                                    ),
+                                                    child: Text(
+                                                      'الرحلة: ${_translateStatus(trip['trip_status'] ?? '')}',
+                                                      style: TextStyle(color: _getStatusColor(trip['trip_status'] ?? ''), fontWeight: FontWeight.bold, fontSize: 11),
+                                                    ),
+                                                  ),
+                                                ],
                                                 Container(
                                                   padding: const EdgeInsets.symmetric(horizontal: 12, vertical: 6),
                                                   decoration: BoxDecoration(
@@ -600,7 +608,7 @@ class _LiveTripsScreenState extends State<LiveTripsScreen> {
                                                     borderRadius: BorderRadius.circular(20),
                                                   ),
                                                   child: Text(
-                                                    _translateStatus(status),
+                                                    trip['is_booking'] == true ? 'الحجز: ${_translateStatus(status)}' : _translateStatus(status),
                                                     style: const TextStyle(color: Colors.white, fontWeight: FontWeight.bold, fontSize: 13),
                                                   ),
                                                 ),
