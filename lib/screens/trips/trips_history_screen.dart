@@ -47,6 +47,18 @@ class _TripsHistoryScreenState extends State<TripsHistoryScreen> {
     }
   }
 
+  String _formatDate(String? isoDate) {
+    if (isoDate == null) return '-';
+    try {
+      final date = DateTime.parse(isoDate).toLocal();
+      final hour = date.hour > 12 ? date.hour - 12 : (date.hour == 0 ? 12 : date.hour);
+      final amPm = date.hour >= 12 ? 'م' : 'ص';
+      return '${date.year}-${date.month.toString().padLeft(2, '0')}-${date.day.toString().padLeft(2, '0')} $hour:${date.minute.toString().padLeft(2, '0')} $amPm';
+    } catch (e) {
+      return isoDate;
+    }
+  }
+
   @override
   void initState() {
     super.initState();
