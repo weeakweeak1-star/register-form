@@ -66,7 +66,7 @@ class _LiveTripsScreenState extends State<LiveTripsScreen> {
       setState(() => isLoading = true);
     }
     try {
-      final String selectBookings = '*, passenger:profiles!passenger_id(full_name, phone), trip:trips!inner(*, driver:profiles!driver_id(full_name, phone))';
+      final String selectBookings = '*, passenger:profiles!passenger_id(full_name, phone), trip:trips(*, driver:profiles!driver_id(full_name, phone))';
       final String selectTaxi = '*, driver:profiles!driver_id(full_name, phone), customer:profiles!passenger_id(full_name, phone)';
 
       final bookingsResponse = await supabase

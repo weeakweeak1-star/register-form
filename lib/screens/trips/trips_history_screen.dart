@@ -103,7 +103,7 @@ class _TripsHistoryScreenState extends State<TripsHistoryScreen> {
       currentPage = 0;
     });
     try {
-      final String selectBookings = '*, passenger:profiles!passenger_id(full_name, phone), trip:trips!inner(*, driver:profiles!driver_id(full_name, phone))';
+      final String selectBookings = '*, passenger:profiles!passenger_id(full_name, phone), trip:trips(*, driver:profiles!driver_id(full_name, phone))';
       final String selectTaxi = '*, driver:profiles!driver_id(full_name, phone), customer:profiles!passenger_id(full_name, phone)';
 
       var bookingsQuery = supabase.from('bookings').select(selectBookings);
@@ -126,11 +126,7 @@ class _TripsHistoryScreenState extends State<TripsHistoryScreen> {
           fetchBookings = false;
         } else {
           fetchTaxi = false;
-          if (selectedType == 'pool') {
-            bookingsQuery = bookingsQuery.eq('trip.is_private', false);
-          } else if (selectedType == 'intercity') {
-            bookingsQuery = bookingsQuery.eq('trip.is_private', true);
-          }
+          // We will filter pool/intercity locally to avoid !inner join issues
         }
       }
 
@@ -199,15 +195,24 @@ class _TripsHistoryScreenState extends State<TripsHistoryScreen> {
       }
 
       // Local Filters
-      if (searchQuery.isNotEmpty) {
+      if (searchQuery.isNotEmpty || selectedType != 'الكل') {
         final queryStr = searchQuery.toLowerCase();
         combined = combined.where((trip) {
-          if (searchType == 'رقم الرحلة') {
-            return (trip['id']?.toString().toLowerCase() ?? '').contains(queryStr);
-          } else if (searchType == 'اسم الكابتن') {
-            return (trip['driver']?['full_name']?.toString().toLowerCase() ?? '').contains(queryStr);
+          bool matchesSearch = true;
+          if (searchQuery.isNotEmpty) {
+            if (searchType == 'رقم الرحلة') {
+              matchesSearch = (trip['id']?.toString().toLowerCase() ?? '').contains(queryStr);
+            } else if (searchType == 'اسم الكابتن') {
+              matchesSearch = (trip['driver']?['full_name']?.toString().toLowerCase() ?? '').contains(queryStr);
+            }
           }
-          return true;
+          
+          bool matchesType = true;
+          if (selectedType != 'الكل') {
+             matchesType = trip['trip_type'] == selectedType;
+          }
+          
+          return matchesSearch && matchesType;
         }).toList();
       }
 
