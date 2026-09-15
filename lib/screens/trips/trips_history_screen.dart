@@ -409,10 +409,11 @@ class _TripsHistoryScreenState extends State<TripsHistoryScreen> {
               ElevatedButton(
                 onPressed: () async {
                   try {
-                    final res = await supabase.from('bookings').select().limit(5);
+                    final String selectBookings = '*, passenger:profiles!passenger_id(full_name, phone), trip:trips!inner(*, driver:profiles!driver_id(full_name, phone))';
+                    final res = await supabase.from('bookings').select(selectBookings).limit(5);
                     if (mounted) {
                       showDialog(context: context, builder: (_) => AlertDialog(
-                        title: const Text('Debug Bookings'),
+                        title: const Text('Debug Bookings (JOIN)'),
                         content: Text('Count: ${res.length}\nData: $res'),
                       ));
                     }
