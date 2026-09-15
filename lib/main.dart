@@ -57,7 +57,7 @@ class MyApp extends StatelessWidget {
   @override
   Widget build(BuildContext context) {
     return MaterialApp.router(
-      title: 'ادارة وياك',
+      title: 'إدارة كَفو',
       debugShowCheckedModeBanner: false,
       routerConfig: _router,
       theme: ThemeData(

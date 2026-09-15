@@ -182,7 +182,7 @@ class _ApplicationFormScreenState extends State<ApplicationFormScreen> {
       backgroundColor: Colors.grey[100],
       appBar: AppBar(
         title: const Text(
-          'انضم لكابتن وياك',
+          'استمارة تسجيل كابتن كَفو',
           style: TextStyle(
             fontWeight: FontWeight.w900,
             fontSize: 24,

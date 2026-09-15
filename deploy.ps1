@@ -3,10 +3,10 @@ Write-Host "Building Form App..."
 flutter build web -t lib/main_form.dart --base-href "/register-form/"
 Remove-Item -Recurse -Force build/web_form -ErrorAction Ignore
 Rename-Item -Path build/web -NewName web_form
-(Get-Content build/web_form/manifest.json) -replace '"name": "ادارة وياك"', '"name": "استمارة التسجيل"' | Set-Content build/web_form/manifest.json
-(Get-Content build/web_form/manifest.json) -replace '"short_name": "ادارة وياك"', '"short_name": "استمارة التسجيل"' | Set-Content build/web_form/manifest.json
+(Get-Content build/web_form/manifest.json) -replace '"name": "إدارة كَفو"', '"name": "استمارة تسجيل كابتن كَفو"' | Set-Content build/web_form/manifest.json
+(Get-Content build/web_form/manifest.json) -replace '"short_name": "إدارة كَفو"', '"short_name": "استمارة تسجيل كابتن كَفو"' | Set-Content build/web_form/manifest.json
 (Get-Content build/web_form/manifest.json) -replace '"start_url": "."', '"start_url": "/register-form/"' | Set-Content build/web_form/manifest.json
-(Get-Content build/web_form/index.html) -replace '<title>ادارة وياك</title>', '<title>استمارة التسجيل</title>' | Set-Content build/web_form/index.html
+(Get-Content build/web_form/index.html) -replace '<title>إدارة كَفو</title>', '<title>استمارة تسجيل كابتن كَفو</title>' | Set-Content build/web_form/index.html
 
 Write-Host "Building Admin App..."
 flutter build web -t lib/main.dart --base-href "/register-form/admin/"

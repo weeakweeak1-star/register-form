@@ -122,7 +122,7 @@ class _DashboardScreenState extends State<DashboardScreen> {
                       ),
                       const SizedBox(width: 12),
                       const Text(
-                        'إدارة وياك',
+                        'إدارة كَفو',
                         style: TextStyle(color: Colors.white, fontSize: 24, fontWeight: FontWeight.bold, letterSpacing: 1.2),
                       ),
                     ],
