@@ -47,54 +47,10 @@ class _TripsHistoryScreenState extends State<TripsHistoryScreen> {
     }
   }
 
-  int totalCompletedTrips = 0;
-
-  String _formatDate(String? isoDate) {
-    if (isoDate == null) return '-';
-    try {
-      final date = DateTime.parse(isoDate).toLocal();
-      final hour = date.hour > 12 ? date.hour - 12 : (date.hour == 0 ? 12 : date.hour);
-      final amPm = date.hour >= 12 ? 'م' : 'ص';
-      return '${date.year}-${date.month.toString().padLeft(2, '0')}-${date.day.toString().padLeft(2, '0')} $hour:${date.minute.toString().padLeft(2, '0')} $amPm';
-    } catch (e) {
-      return isoDate;
-    }
-  }
-
   @override
   void initState() {
     super.initState();
     _fetchHistory();
-    _fetchTotalCompletedTrips();
-  }
-
-  Future<void> _fetchTotalCompletedTrips() async {
-    int tripsCount = 0;
-    int taxiCount = 0;
-
-    try {
-      tripsCount = await supabase
-          .from('trips')
-          .count(CountOption.exact)
-          .eq('status', 'completed');
-    } catch (e) {
-      debugPrint('Error fetching trips count: $e');
-    }
-
-    try {
-      taxiCount = await supabase
-          .from('taxi_requests')
-          .count(CountOption.exact)
-          .eq('status', 'completed');
-    } catch (e) {
-      debugPrint('Error fetching taxi requests count: $e');
-    }
-
-    if (mounted) {
-      setState(() {
-        totalCompletedTrips = tripsCount + taxiCount;
-      });
-    }
   }
 
   Future<void> _fetchHistory() async {
@@ -407,85 +363,7 @@ class _TripsHistoryScreenState extends State<TripsHistoryScreen> {
       child: Column(
         crossAxisAlignment: CrossAxisAlignment.start,
         children: [
-          Row(
-            mainAxisAlignment: MainAxisAlignment.spaceBetween,
-            children: [
-              const Text('سجل الرحلات المكتملة والملغاة', style: TextStyle(fontSize: 24, fontWeight: FontWeight.bold)),
-              ElevatedButton(
-                onPressed: () async {
-                  try {
-                    final String selectBookings = '*, passenger:profiles!passenger_id(full_name, phone), trip:trips!inner(*, driver:profiles!driver_id(full_name, phone))';
-                    final res = await supabase.from('bookings').select(selectBookings).limit(5);
-                    if (mounted) {
-                      showDialog(context: context, builder: (_) => AlertDialog(
-                        title: const Text('Debug Bookings (JOIN)'),
-                        content: Text('Count: ${res.length}\nData: $res'),
-                      ));
-                    }
-                  } catch (e) {
-                    if (mounted) {
-                      showDialog(context: context, builder: (_) => AlertDialog(
-                        title: const Text('Debug Error'),
-                        content: Text(e.toString()),
-                      ));
-                    }
-                  }
-                },
-                child: const Text('فحص الخلل (Debug)'),
-              ),
-            ],
-          ),
-          const SizedBox(height: 16),
-
-          // --- Top Summary Card ---
-          Container(
-            width: double.infinity,
-            padding: const EdgeInsets.all(24),
-            decoration: BoxDecoration(
-              gradient: const LinearGradient(
-                colors: [Color(0xFF0F9D58), Color(0xFF0B8043)],
-                begin: Alignment.topLeft,
-                end: Alignment.bottomRight,
-              ),
-              borderRadius: BorderRadius.circular(16),
-              boxShadow: [
-                BoxShadow(
-                  color: Colors.green.withOpacity(0.3),
-                  blurRadius: 12,
-                  offset: const Offset(0, 6),
-                ),
-              ],
-            ),
-            child: Row(
-              mainAxisAlignment: MainAxisAlignment.spaceBetween,
-              children: [
-                Column(
-                  crossAxisAlignment: CrossAxisAlignment.start,
-                  children: [
-                    const Text(
-                      'إجمالي الرحلات المكتملة',
-                      style: TextStyle(color: Colors.white, fontSize: 20, fontWeight: FontWeight.bold),
-                    ),
-                    const SizedBox(height: 8),
-                    Text(
-                      'جميع الرحلات الناجحة في النظام',
-                      style: TextStyle(color: Colors.white.withOpacity(0.8), fontSize: 14),
-                    ),
-                  ],
-                ),
-                Row(
-                  children: [
-                    const Icon(Icons.check_circle_outline, color: Colors.white, size: 40),
-                    const SizedBox(width: 12),
-                    Text(
-                      '$totalCompletedTrips',
-                      style: const TextStyle(color: Colors.white, fontSize: 48, fontWeight: FontWeight.bold),
-                    ),
-                  ],
-                ),
-              ],
-            ),
-          ),
+          const Text('سجل الرحلات المكتملة والملغاة', style: TextStyle(fontSize: 24, fontWeight: FontWeight.bold)),
           const SizedBox(height: 16),
           
           // --- Filter Section ---

@@ -20,6 +20,7 @@ class _AdminDashboardScreenState extends State<AdminDashboardScreen> {
   // Stats
   int _activeDrivers = 0;
   int _liveTrips = 0;
+  int _totalCompletedTrips = 0;
   
   // Pagination
   int _pendingPage = 0;
@@ -58,11 +59,16 @@ class _AdminDashboardScreenState extends State<AdminDashboardScreen> {
           .select('id')
           .eq('status', 'ongoing');
           
+      // 4. Fetch Total Completed Trips
+      final completedTrips = await _supabase.from('trips').select('id').eq('status', 'completed');
+      final completedTaxi = await _supabase.from('taxi_requests').select('id').eq('status', 'completed');
+          
       setState(() {
         _pendingApps = data.where((app) => app['status'] == 'pending').toList();
         _rejectedApps = data.where((app) => app['status'] == 'rejected').toList();
         _activeDrivers = driversResponse.length;
         _liveTrips = tripsResponse.length;
+        _totalCompletedTrips = completedTrips.length + completedTaxi.length;
       });
     } catch (e) {
       debugPrint('Error fetching dashboard data: $e');
@@ -134,6 +140,12 @@ class _AdminDashboardScreenState extends State<AdminDashboardScreen> {
                 _isLoading ? '...' : '$_liveTrips',
                 Icons.map_rounded,
                 [Colors.green.shade400, Colors.teal.shade600],
+              ),
+              _buildStatCard(
+                'الرحلات المكتملة',
+                _isLoading ? '...' : '$_totalCompletedTrips',
+                Icons.check_circle_outline_rounded,
+                [const Color(0xFF0F9D58), const Color(0xFF0B8043)],
               ),
             ],
           ),
