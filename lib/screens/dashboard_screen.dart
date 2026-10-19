@@ -4,6 +4,7 @@ import 'package:go_router/go_router.dart';
 
 import 'admin_dashboard_screen.dart';
 import 'drivers/drivers_list_screen.dart';
+import 'customers/customers_list_screen.dart';
 import 'trips/live_trips_screen.dart';
 import 'trips/trips_history_screen.dart';
 import 'finance/wallets_screen.dart';
@@ -24,6 +25,7 @@ class _DashboardScreenState extends State<DashboardScreen> {
   final List<Widget> _screens = [
     const AdminDashboardScreen(),
     const DriversListScreen(),
+    const CustomersListScreen(),
     const LiveTripsScreen(),
     const TripsHistoryScreen(),
     const WalletsScreen(),
@@ -35,6 +37,7 @@ class _DashboardScreenState extends State<DashboardScreen> {
   final List<String> _titles = [
     'نظرة عامة (Overview)',
     'إدارة وتفعيل الكباتن',
+    'الزبائن',
     'الرحلات الجارية',
     'سجل الرحلات',
     'محافظ الكباتن',
@@ -46,6 +49,7 @@ class _DashboardScreenState extends State<DashboardScreen> {
   final List<IconData> _icons = [
     Icons.dashboard_rounded,
     Icons.people_alt_rounded,
+    Icons.groups_rounded,
     Icons.map_rounded,
     Icons.history_rounded,
     Icons.account_balance_wallet_rounded,
