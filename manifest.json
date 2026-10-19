@@ -1,6 +1,6 @@
 {
-    "name": "استمارة تسجيل كابتن كَفو",
-    "short_name": "استمارة تسجيل كابتن كَفو",
+    "name": "إدارة كَفو",
+    "short_name": "إدارة كَفو",
     "start_url": "/register-form/",
     "display": "standalone",
     "background_color": "#0175C2",
