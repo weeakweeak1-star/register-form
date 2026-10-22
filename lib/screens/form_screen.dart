@@ -31,12 +31,28 @@ class _ApplicationFormScreenState extends State<ApplicationFormScreen> {
   bool _isLoading = false;
   bool _isSuccess = false;
 
+  String _getContentType(String ext) {
+    switch (ext.toLowerCase()) {
+      case 'jpg':
+      case 'jpeg':
+        return 'image/jpeg';
+      case 'png':
+        return 'image/png';
+      case 'webp':
+        return 'image/webp';
+      case 'heic':
+        return 'image/heic';
+      default:
+        return 'image/jpeg';
+    }
+  }
+
   Future<void> _pickImage(String type) async {
     final XFile? image = await _picker.pickImage(
       source: ImageSource.gallery,
-      imageQuality: 70, // تقليل جودة الصورة لتقليل حجمها
-      maxWidth: 1200, // تصغير أبعاد الصورة الكبيرة
-      maxHeight: 1200,
+      imageQuality: 80, // جودة متوازنة لتقليل الحجم مع الحفاظ على وضوح المستمسك
+      maxWidth: 1600, // تصغير أبعاد الصورة الكبيرة
+      maxHeight: 1600,
     );
     if (image != null) {
       final ext = image.name.split('.').last.toLowerCase();
@@ -52,11 +68,11 @@ class _ApplicationFormScreenState extends State<ApplicationFormScreen> {
 
       final bytes = await image.readAsBytes();
       
-      // التحقق من حجم الصورة بحيث لا تتجاوز 500 كيلوبايت
-      if (bytes.lengthInBytes > 500 * 1024) {
+      // التحقق من حجم الصورة بحيث لا تتجاوز 10 ميغابايت (المعيار المدعوم في السيرفر)
+      if (bytes.lengthInBytes > 10 * 1024 * 1024) {
         if (mounted) {
           ScaffoldMessenger.of(context).showSnackBar(
-            const SnackBar(content: Text('حجم الصورة كبير جداً. الحد الأقصى هو 500 كيلوبايت.'), backgroundColor: Colors.red),
+            const SnackBar(content: Text('حجم الصورة كبير جداً. الحد الأقصى هو 10 ميغابايت.'), backgroundColor: Colors.red),
           );
         }
         return;
@@ -89,14 +105,27 @@ class _ApplicationFormScreenState extends State<ApplicationFormScreen> {
     }
   }
 
-  Future<String?> _uploadFile(Uint8List bytes, String ext, String prefix) async {
+  Future<String> _uploadFile(Uint8List bytes, String ext, String prefix) async {
+    final fileName = '${prefix}_${DateTime.now().millisecondsSinceEpoch}.$ext';
+    final contentType = _getContentType(ext);
+    debugPrint('📤 [Storage Upload] Starting upload for $fileName (${bytes.lengthInBytes} bytes, MIME: $contentType)...');
+
     try {
-      final fileName = '${prefix}_${DateTime.now().millisecondsSinceEpoch}.$ext';
-      await supabase.storage.from('driver_documents').uploadBinary(fileName, bytes);
-      return supabase.storage.from('driver_documents').getPublicUrl(fileName);
-    } catch (e) {
-      debugPrint('Upload error: $e');
-      return null;
+      await supabase.storage.from('driver_documents').uploadBinary(
+        fileName,
+        bytes,
+        fileOptions: FileOptions(
+          contentType: contentType,
+          upsert: true,
+        ),
+      );
+      final publicUrl = supabase.storage.from('driver_documents').getPublicUrl(fileName);
+      debugPrint('✅ [Storage Upload Success] $prefix -> $publicUrl');
+      return publicUrl;
+    } catch (e, stackTrace) {
+      debugPrint('❌ [Storage Upload Error] Failed uploading $fileName ($prefix): $e');
+      debugPrint('Stack trace: $stackTrace');
+      throw 'فشل رفع مستمسك ($prefix): $e';
     }
   }
 
@@ -109,7 +138,7 @@ class _ApplicationFormScreenState extends State<ApplicationFormScreen> {
     
     if (_profilePicBytes == null || _idFrontBytes == null || _idBackBytes == null || _carRegFrontBytes == null || _carRegBackBytes == null || _licenseBytes == null) {
       ScaffoldMessenger.of(context).showSnackBar(
-        const SnackBar(content: Text('يرجى التأكد من رفع كافة المستمسكات الستة المطلوبة'), backgroundColor: Colors.red),
+        const SnackBar(content: Text('يرجى التأكد من اختيار كافة المستمسكات الستة المطلوبة'), backgroundColor: Colors.red),
       );
       return;
     }
@@ -117,22 +146,33 @@ class _ApplicationFormScreenState extends State<ApplicationFormScreen> {
     setState(() => _isLoading = true);
 
     try {
-      final profilePicUrl = await _uploadFile(_profilePicBytes!, _profilePicExt ?? 'jpg', 'profile');
-      final idFrontUrl = await _uploadFile(_idFrontBytes!, _idFrontExt ?? 'jpg', 'id_front');
-      final idBackUrl = await _uploadFile(_idBackBytes!, _idBackExt ?? 'jpg', 'id_back');
-      final regFrontUrl = await _uploadFile(_carRegFrontBytes!, _carRegFrontExt ?? 'jpg', 'reg_front');
-      final regBackUrl = await _uploadFile(_carRegBackBytes!, _carRegBackExt ?? 'jpg', 'reg_back');
-      final licenseUrl = await _uploadFile(_licenseBytes!, _licenseExt ?? 'jpg', 'license');
-      
-      String? poaUrl;
+      debugPrint('🚀 [Application Submit] Starting concurrent upload of driver documents...');
+
+      // رفع المستندات بالتوازي لتسريع العملية
+      final uploadTasks = <Future<String>>[
+        _uploadFile(_profilePicBytes!, _profilePicExt ?? 'jpg', 'profile'),
+        _uploadFile(_idFrontBytes!, _idFrontExt ?? 'jpg', 'id_front'),
+        _uploadFile(_idBackBytes!, _idBackExt ?? 'jpg', 'id_back'),
+        _uploadFile(_carRegFrontBytes!, _carRegFrontExt ?? 'jpg', 'reg_front'),
+        _uploadFile(_carRegBackBytes!, _carRegBackExt ?? 'jpg', 'reg_back'),
+        _uploadFile(_licenseBytes!, _licenseExt ?? 'jpg', 'license'),
+      ];
+
       if (_poaBytes != null) {
-        poaUrl = await _uploadFile(_poaBytes!, _poaExt ?? 'jpg', 'poa');
+        uploadTasks.add(_uploadFile(_poaBytes!, _poaExt ?? 'jpg', 'poa'));
       }
 
-      if (profilePicUrl == null || idFrontUrl == null || idBackUrl == null || regFrontUrl == null || regBackUrl == null || licenseUrl == null || (_poaBytes != null && poaUrl == null)) {
-        throw 'فشل رفع إحدى الصور. يرجى المحاولة مرة أخرى.';
-      }
+      final uploadedUrls = await Future.wait(uploadTasks);
 
+      final profilePicUrl = uploadedUrls[0];
+      final idFrontUrl = uploadedUrls[1];
+      final idBackUrl = uploadedUrls[2];
+      final regFrontUrl = uploadedUrls[3];
+      final regBackUrl = uploadedUrls[4];
+      final licenseUrl = uploadedUrls[5];
+      final poaUrl = _poaBytes != null ? uploadedUrls[6] : null;
+
+      debugPrint('💾 [Database Insert] Inserting application into driver_applications table...');
       await supabase.from('driver_applications').insert({
         'phone_number': _phoneController.text.trim(),
         'full_name': _nameController.text.trim(),
@@ -145,16 +185,32 @@ class _ApplicationFormScreenState extends State<ApplicationFormScreen> {
         if (poaUrl != null) 'power_of_attorney_url': poaUrl,
       });
 
+      debugPrint('🎉 [Application Success] Application successfully submitted!');
       setState(() {
         _isSuccess = true;
         _isLoading = false;
       });
 
-    } catch (e) {
+    } catch (e, stackTrace) {
+      debugPrint('❌ [Application Submit Error] $e');
+      debugPrint('Stack: $stackTrace');
       setState(() => _isLoading = false);
-      ScaffoldMessenger.of(context).showSnackBar(
-        SnackBar(content: Text(e.toString()), backgroundColor: Colors.red),
-      );
+      
+      final errorMessage = e.toString().replaceFirst('Exception: ', '');
+      if (mounted) {
+        ScaffoldMessenger.of(context).showSnackBar(
+          SnackBar(
+            content: Text(errorMessage),
+            backgroundColor: Colors.red,
+            duration: const Duration(seconds: 6),
+            action: SnackBarAction(
+              label: 'حسناً',
+              textColor: Colors.white,
+              onPressed: () {},
+            ),
+          ),
+        );
+      }
     }
   }
 
@@ -347,7 +403,7 @@ class _ApplicationFormScreenState extends State<ApplicationFormScreen> {
       child: OutlinedButton.icon(
         onPressed: () => _pickImage(type),
         icon: Icon(isPicked ? Icons.check_circle : Icons.upload_file, color: isPicked ? Colors.green : null),
-        label: Text(title + (isPicked ? ' (تم الرفع)' : ''), style: TextStyle(color: isPicked ? Colors.green : Colors.black87)),
+        label: Text(title + (isPicked ? ' (تم الإرفاق بنجاح ✓)' : ''), style: TextStyle(color: isPicked ? Colors.green : Colors.black87)),
         style: OutlinedButton.styleFrom(
           padding: const EdgeInsets.symmetric(vertical: 16, horizontal: 16),
           alignment: Alignment.centerRight,
