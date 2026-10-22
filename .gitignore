@@ -49,6 +49,7 @@ app.*.map.json
 .env.*
 !.env.example
 *.g.dart
+!lib/env/env.g.dart
 
 # Firebase Service Account & Admin Keys
 *firebase-admin*.json
