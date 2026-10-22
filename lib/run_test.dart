@@ -1,10 +1,11 @@
 import 'package:supabase/supabase.dart';
+import 'env/env.dart';
 
 void main() async {
   print('Initializing Supabase...');
   final supabase = SupabaseClient(
-    'https://lvyqpyqkutdycdldoebw.supabase.co',
-    'eyJhbGciOiJIUzI1NiIsInR5cCI6IkpXVCJ9.eyJpc3MiOiJzdXBhYmFzZSIsInJlZiI6Imx2eXFweXFrdXRkeWNkbGRvZWJ3Iiwicm9sZSI6ImFub24iLCJpYXQiOjE3Njg0ODkxNDYsImV4cCI6MjA4NDA2NTE0Nn0.CiCTIvGCf9fmukndKnxnzot8CIfzKc9UQPcDXaCTANM',
+    Env.supabaseUrl,
+    Env.supabaseAnonKey,
   );
   
   try {

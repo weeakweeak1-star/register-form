@@ -1,11 +1,11 @@
 import 'package:supabase_flutter/supabase_flutter.dart';
-import 'lib/app_secrets.dart';
+import 'lib/env/env.dart';
 
 void main() async {
   print('Initializing Supabase...');
   await Supabase.initialize(
-    url: AppSecrets.supabaseUrl,
-    anonKey: AppSecrets.supabaseAnonKey,
+    url: Env.supabaseUrl,
+    anonKey: Env.supabaseAnonKey,
   );
   
   final supabase = Supabase.instance.client;

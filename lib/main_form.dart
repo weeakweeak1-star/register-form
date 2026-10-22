@@ -1,13 +1,13 @@
 import 'package:flutter/material.dart';
 import 'package:supabase_flutter/supabase_flutter.dart';
-import 'app_secrets.dart';
+import 'env/env.dart';
 import 'screens/form_screen.dart';
 
 void main() async {
   WidgetsFlutterBinding.ensureInitialized();
   await Supabase.initialize(
-    url: AppSecrets.supabaseUrl,
-    anonKey: AppSecrets.supabaseAnonKey,
+    url: Env.supabaseUrl,
+    anonKey: Env.supabaseAnonKey,
   );
   runApp(const FormApp());
 }

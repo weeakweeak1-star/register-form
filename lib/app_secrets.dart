@@ -1,8 +1,10 @@
+import 'env/env.dart';
+
+/// AppSecrets provides secure access to environment variables obfuscated via Envied.
 class AppSecrets {
-  // TODO: Replace with actual Supabase URL and Anon Key
-  static const String supabaseUrl = 'https://lvyqpyqkutdycdldoebw.supabase.co';
-  static const String supabaseAnonKey = 'eyJhbGciOiJIUzI1NiIsInR5cCI6IkpXVCJ9.eyJpc3MiOiJzdXBhYmFzZSIsInJlZiI6Imx2eXFweXFrdXRkeWNkbGRvZWJ3Iiwicm9sZSI6ImFub24iLCJpYXQiOjE3Njg0ODkxNDYsImV4cCI6MjA4NDA2NTE0Nn0.CiCTIvGCf9fmukndKnxnzot8CIfzKc9UQPcDXaCTANM';
-  
-  // TODO: Add your Google Maps API Key here
-  static const String googleMapsApiKey = 'AIzaSyDW1IlscD9xZ-plhaKzcCc0Wgd7GukV8go';
+  static String get supabaseUrl => Env.supabaseUrl;
+  static String get supabaseAnonKey => Env.supabaseAnonKey;
+  static String get googleMapsApiKey => Env.googleMapsApiKey;
+  static String? get whatsappApiKey => Env.whatsappApiKey;
+  static String? get whatsappPhoneNumberId => Env.whatsappPhoneNumberId;
 }
