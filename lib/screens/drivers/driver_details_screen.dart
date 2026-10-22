@@ -422,7 +422,7 @@ class _DriverDetailsScreenState extends State<DriverDetailsScreen> {
                 color: Colors.orange,
                 onTap: () => showDialog(
                   context: context,
-                  builder: (context) => DriverLocationModal(driverId: driver['id'], driverName: driver['full_name']),
+                  builder: (context) => DriverLocationModal(driverId: driver['id']?.toString() ?? '', driverName: driver['full_name']?.toString() ?? 'بدون اسم'),
                 ),
               ),
               _buildToolButton(
@@ -431,7 +431,7 @@ class _DriverDetailsScreenState extends State<DriverDetailsScreen> {
                 color: Colors.teal,
                 onTap: () => showDialog(
                   context: context,
-                  builder: (context) => DriverWalletModal(driverId: driver['id'], driverName: driver['full_name']),
+                  builder: (context) => DriverWalletModal(driverId: driver['id']?.toString() ?? '', driverName: driver['full_name']?.toString() ?? 'بدون اسم'),
                 ),
               ),
               _buildToolButton(
@@ -440,7 +440,7 @@ class _DriverDetailsScreenState extends State<DriverDetailsScreen> {
                 color: Colors.purple,
                 onTap: () => showDialog(
                   context: context,
-                  builder: (context) => DriverTripsModal(driverId: driver['id'], driverName: driver['full_name']),
+                  builder: (context) => DriverTripsModal(driverId: driver['id']?.toString() ?? '', driverName: driver['full_name']?.toString() ?? 'بدون اسم'),
                 ),
               ),
             ],

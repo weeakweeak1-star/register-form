@@ -1,7 +1,6 @@
 import 'package:flutter/material.dart';
 import 'package:supabase_flutter/supabase_flutter.dart';
 import 'driver_details_screen.dart';
-import 'components/edit_driver_dialog.dart';
 import 'components/driver_location_modal.dart';
 import 'components/driver_wallet_modal.dart';
 import 'components/driver_trips_modal.dart';
@@ -213,8 +212,8 @@ class _DriversListScreenState extends State<DriversListScreen> {
                                     onPressed: () => showDialog(
                                       context: context,
                                       builder: (context) => DriverWalletModal(
-                                        driverId: driver['id'],
-                                        driverName: driver['full_name'] ?? 'بدون اسم',
+                                        driverId: driver['id']?.toString() ?? '',
+                                        driverName: driver['full_name']?.toString() ?? 'بدون اسم',
                                       ),
                                     ),
                                   ),
